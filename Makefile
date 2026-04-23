@@ -7,7 +7,8 @@ LDFLAGS = -T kernel/linker.ld -static -nostdlib -nostartfiles -no-pie -Wl,--buil
 KERNEL_OBJS = \
 	kernel/entry.o \
 	kernel/start.o \
-	kernel/sbi.o 
+	kernel/sbi.o \
+	kernel/printf.o
 	
 all: kernel.elf
 kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
@@ -22,12 +23,15 @@ kernel/start.o: kernel/start.c kernel/sbi.h
 kernel/sbi.o: kernel/sbi.c kernel/sbi.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+kernel/printf.o:kernel/printf.c kernel/printf.h  kernel/sbi.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 run : kernel.elf
 	qemu-system-riscv64 \
 	-machine virt \
 	-nographic \
 	-bios default \
-	-kernel kernel.elf \
+	-kernel kernel.elf 
 
 clean:
 	rm -f kernel/*.o kernel.elf
