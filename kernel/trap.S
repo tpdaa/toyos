@@ -36,6 +36,8 @@ trap_entry:
     sd t5, 224(sp)
     sd t6, 232(sp)
 
+    # 把 trapframe 地址作为第一个参数传给 kernel_trap(tf)
+    mv a0, sp
     call kernel_trap
 
     ld ra, 0(sp)

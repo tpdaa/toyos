@@ -28,7 +28,7 @@ kernel/sbi.o: kernel/sbi.c kernel/sbi.h
 kernel/printf.o: kernel/printf.c kernel/printf.h  kernel/sbi.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/trap.o: kernel/trap.c kernel/trap.h kernel/riscv.h kernel/printf.h
+kernel/trap.o: kernel/trap.c kernel/trap.h kernel/trapframe.h kernel/riscv.h kernel/printf.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/trap_entry.o: kernel/trap.S

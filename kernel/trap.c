@@ -1,6 +1,7 @@
 #include "trap.h"
 #include "riscv.h"
 #include "printf.h"
+#include "trapframe.h"
 
 extern void trap_entry(void);
 
@@ -10,7 +11,7 @@ void trap_init(void)
     printf("trap init done, stvec=%p\n",(void *)trap_entry);
 }
 
-void kernel_trap(void)
+void kernel_trap(struct trapframe *tf)
 {
     uint64 scause = r_scause();
     uint64 sepc = r_sepc();
@@ -19,6 +20,9 @@ void kernel_trap(void)
     printf("trap happened: scause=%lx sepc=%p stval=%lx\n",
             scause,(void *)sepc,stval);
 
+    printf("trapframe: tf=%p a0=%lx a1=%lx a7=%lx\n",
+           (void *)tf, tf->a0, tf->a1, tf->a7);
+        
     if(scause==3)
     {
         w_sepc(sepc+4);
