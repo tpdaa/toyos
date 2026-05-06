@@ -1,10 +1,22 @@
 #include "printf.h"
+#include "trap.h"
 
 void start(void)
 {
-    printf("Hello World from ToyOS!\n");
+    printf("Toyos kernel start.\n");
 
-    printf("num=%d hex=%x str=%s ptr=%p\n", 123, 123, "ok", (void *)start);
+    trap_init();
+
+    printf("Before trap\n");
+
+    /*
+     * 0x00100073 is the 32-bit encoding of ebreak.
+     * It should trigger a breakpoint exception.
+     */
+
+    asm volatile(".4byte 0x00100073");
+
+    printf("After trap\n");
     
     for(;;)
     {
