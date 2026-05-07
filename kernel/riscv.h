@@ -3,6 +3,9 @@
 
 typedef unsigned long uint64;
 
+#define SSTATUS_SPP  (1L << 8)//SSP位掩码
+#define SSTATUS_SPIE (1L << 5)//SPIE位掩码
+
 static inline uint64 r_scause(void)
 {
     uint64 x;
@@ -34,5 +37,16 @@ static inline void w_stvec(uint64 x)
     asm volatile("csrw stvec, %0" : : "r"(x));
 }
 
+static inline uint64 r_sstatus(void)
+{
+    uint64 x;
+    asm volatile("csrr %0,sstatus" : "=r"(x));
+    return x;
+}
+
+static inline void w_sstatus(uint64 x)
+{
+    asm volatile("csrw sstatus, %0" : : "r"(0));
+}
 
 #endif

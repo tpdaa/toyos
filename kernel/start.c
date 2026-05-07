@@ -1,5 +1,9 @@
 #include "printf.h"
 #include "trap.h"
+#include "user.h"
+#include "riscv.h"
+
+static unsigned char user_stack[16384] __attribute__((aligned(16)));
 
 void start(void)
 {
@@ -7,32 +11,12 @@ void start(void)
 
     trap_init();
 
-    printf("Before trap\n");
+    printf("enter user mode...\n");
 
-    /*
-     * 0x00100073 is the 32-bit encoding of ebreak.
-     * It should trigger a breakpoint exception.
-     */
-
-     /*
-     * Set several registers before ebreak,
-     * so trapframe can prove it saved them correctly.
-     *
-     * a0 = 0x111
-     * a1 = 0x222
-     * a7 = 0x333
-     */
-    asm volatile(
-        "li a0, 0x111\n"
-        "li a1, 0x222\n"
-        "li a7, 0x333\n"
-        ".4byte 0x00100073\n"
-        :
-        :
-        : "a0", "a1", "a7", "memory"
-    );
-
-    printf("After trap\n");
+    enter_user((uint64)user_main,
+                (uint64)(user_stack + sizeof(user_stack)));
+   
+    printf("ERROR: enter_user returned.\n");
     
     for(;;)
     {

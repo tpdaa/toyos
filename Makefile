@@ -1,7 +1,7 @@
 CROSS = riscv64-linux-gnu-
 CC = $(CROSS)gcc
 
-CFLAGS = -Wall -Werror -O0 -g -nostdlib -nostartfiles -ffreestanding -fno-pie -no-pie -mcmodel=medany
+CFLAGS = -std=gnu11 -Wall -Werror -O0 -g -nostdlib -nostartfiles -ffreestanding -fno-pie -no-pie -mcmodel=medany
 LDFLAGS = -T kernel/linker.ld -static -nostdlib -nostartfiles -no-pie -Wl,--build-id=none
 
 KERNEL_OBJS = \
@@ -10,7 +10,10 @@ KERNEL_OBJS = \
 	kernel/sbi.o \
 	kernel/printf.o \
 	kernel/trap.o \
-	kernel/trap_entry.o
+	kernel/trap_entry.o \
+	kernel/syscall.o \
+	kernel/user.o \
+	kernel/user_entry.o
 	
 all: kernel.elf
 kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
@@ -32,6 +35,15 @@ kernel/trap.o: kernel/trap.c kernel/trap.h kernel/trapframe.h kernel/riscv.h ker
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/trap_entry.o: kernel/trap.S
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+kernel/syscall.o: kernel/syscall.c kernel/syscall.h kernel/trapframe.h kernel/printf.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+kernel/user.o: kernel/user.c kernel/user.h kernel/syscall.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+kernel/user_entry.o: kernel/user.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 run : kernel.elf

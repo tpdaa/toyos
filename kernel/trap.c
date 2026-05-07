@@ -2,6 +2,7 @@
 #include "riscv.h"
 #include "printf.h"
 #include "trapframe.h"
+#include "syscall.h"
 
 extern void trap_entry(void);
 
@@ -20,11 +21,18 @@ void kernel_trap(struct trapframe *tf)
     printf("trap happened: scause=%lx sepc=%p stval=%lx\n",
             scause,(void *)sepc,stval);
 
-    printf("trapframe: tf=%p a0=%lx a1=%lx a7=%lx\n",
-           (void *)tf, tf->a0, tf->a1, tf->a7);
+    if(scause == 8)
+    {
+        w_sepc(sepc+4);
+        syscall(tf);
+        return;
+    }
+   
         
     if(scause==3)
     {
+        printf("trapframe: tf=%p a0=%lx a1=%lx a7=%lx\n",
+               (void *)tf, tf->a0, tf->a1, tf->a7);
         w_sepc(sepc+4);
         return;
     }
