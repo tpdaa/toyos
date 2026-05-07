@@ -49,7 +49,9 @@ kernel/user_entry.o: kernel/user.S
 run : kernel.elf
 	qemu-system-riscv64 \
 	-machine virt \
-	-nographic \
+	-display none \
+	-serial stdio \
+	-monitor none \
 	-bios default \
 	-kernel kernel.elf 
 
