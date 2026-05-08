@@ -9,7 +9,7 @@ SECTIONS
         *(.text .text.*)
     }
 
-    .radata : {
+    .rodata : {
         *(.rodata .rodata.*)
     }
 
@@ -21,4 +21,7 @@ SECTIONS
         *(.bss .bss.*)
         *(COMMON)
     }
+
+    . = ALIGN(4096);
+    PROVIDE(end = .);
 }

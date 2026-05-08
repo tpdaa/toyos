@@ -2,6 +2,7 @@
 #include "trap.h"
 #include "user.h"
 #include "riscv.h"
+#include "kalloc.h"
 
 static unsigned char user_stack[16384] __attribute__((aligned(16)));
 
@@ -11,6 +12,22 @@ void start(void)
 
     trap_init();
 
+    kinit();
+
+    void  *p1 = kalloc();
+    void  *p2 = kalloc();
+
+    printf("kalloc test: p1=%p p2=%p\n", p1, p2);
+
+    kfree(p1);
+
+    void *p3 = kalloc();
+
+    printf("kalloc test: after kfree(p1), p3=%p\n", p3);
+
+    kfree(p2);
+    kfree(p3);
+    
     printf("enter user mode...\n");
 
     enter_user((uint64)user_main,
