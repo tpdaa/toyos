@@ -23,5 +23,18 @@ SECTIONS
     }
 
     . = ALIGN(4096);
+    PROVIDE(user_start = .);
+
+    .user : {
+        *(.user.text .user.text.*)
+        *(.user.rodata .user.rodata.*)
+        *(.user.data .user.data.*)
+        *(.user.bss .user.bss.*)
+    }
+
+    . = ALIGN(4096);
+    PROVIDE(user_end = .);
+
+    . = ALIGN(4096);
     PROVIDE(end = .);
 }

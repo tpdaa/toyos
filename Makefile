@@ -14,7 +14,8 @@ KERNEL_OBJS = \
 	kernel/syscall.o \
 	kernel/user.o \
 	kernel/user_entry.o \
-	kernel/kalloc.o
+	kernel/kalloc.o \
+	kernel/vm.o
 	
 all: kernel.elf
 kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
@@ -23,7 +24,7 @@ kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
 kernel/entry.o: kernel/entry.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/start.o: kernel/start.c kernel/printf.h kernel/trap.h kernel/kalloc.h kernel/riscv.h kernel/user.h
+kernel/start.o: kernel/start.c kernel/printf.h kernel/trap.h kernel/kalloc.h kernel/riscv.h kernel/user.h kernel/vm.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/sbi.o: kernel/sbi.c kernel/sbi.h
@@ -41,13 +42,16 @@ kernel/trap_entry.o: kernel/trap.S
 kernel/syscall.o: kernel/syscall.c kernel/syscall.h kernel/trapframe.h kernel/printf.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/user.o: kernel/user.c kernel/user.h kernel/syscall.h
+kernel/user.o: kernel/user.c kernel/user.h kernel/syscall.h 
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/user_entry.o: kernel/user.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/kalloc.o: kernel/kalloc.c kernel/kalloc.h kernel/memlayout.h kernel/riscv.h kernel/printf.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+kernel/vm.o: kernel/vm.c kernel/vm.h kernel/memlayout.h kernel/kalloc.h kernel/printf.h kernel/riscv.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 run : kernel.elf

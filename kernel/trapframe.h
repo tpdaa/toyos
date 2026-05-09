@@ -36,7 +36,7 @@ struct trapframe
     uint64 t5;      // 224
     uint64 t6;      // 232
 
-    uint64 reserved0; //240
+    uint64 sp; //240, user sp saved from sscratch
     uint64 reserved1; //248
 };
 

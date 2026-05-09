@@ -3,8 +3,7 @@
 #include "user.h"
 #include "riscv.h"
 #include "kalloc.h"
-
-static unsigned char user_stack[16384] __attribute__((aligned(16)));
+#include "vm.h"
 
 void start(void)
 {
@@ -27,6 +26,9 @@ void start(void)
 
     kfree(p2);
     kfree(p3);
+
+    kvminit();
+    kvminithart();
     
     printf("enter user mode...\n");
 

@@ -4,12 +4,22 @@
 #include "trapframe.h"
 #include "syscall.h"
 
+#define KERNEL_TRAP_STACK_SIZE 8192
+
+static unsigned char kernel_trap_stack[KERNEL_TRAP_STACK_SIZE]
+    __attribute__((aligned(16)));
+
 extern void trap_entry(void);
 
 void trap_init(void)
 {
     w_stvec((uint64)trap_entry);//设置入口
-    printf("trap init done, stvec=%p\n",(void *)trap_entry);
+
+    w_sscratch((uint64)(kernel_trap_stack + KERNEL_TRAP_STACK_SIZE));
+
+    printf("trap init done, stvec=%p kstack=%p\n",
+            (void *)trap_entry,
+            (void *)(kernel_trap_stack + KERNEL_TRAP_STACK_SIZE));
 }
 
 void kernel_trap(struct trapframe *tf)
@@ -24,6 +34,9 @@ void kernel_trap(struct trapframe *tf)
     if(scause == 8)
     {
         w_sepc(sepc+4);
+
+        set_sstatus(SSTATUS_SUM);
+
         syscall(tf);
         return;
     }
@@ -37,7 +50,7 @@ void kernel_trap(struct trapframe *tf)
         return;
     }
 
-    printf("unhandled trap,hait.\n");
+    printf("unhandled trap,halt.\n");
 
     for(;;)
     {
