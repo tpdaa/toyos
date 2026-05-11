@@ -36,6 +36,15 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 void kvminit(void);
 void kvminithart(void);
 
+void vm_switch(pagetable_t pagetable);
+
+extern pagetable_t user_pagetable;
+extern uint64 user_entry;
+extern uint64 user_stack_top;
+
+void uvminit(void);
+void uvminithart(void);
+
 uint64 walkaddr(pagetable_t pagetable, uint64 va);
 
 int copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len);

@@ -28,12 +28,14 @@ void start(void)
     kfree(p3);
 
     kvminit();
-    kvminithart();
+   // kvminithart();
     
+    uvminit();
+    uvminithart();
+
     printf("enter user mode...\n");
 
-    enter_user((uint64)user_main,
-                (uint64)(user_stack + sizeof(user_stack)));
+    enter_user(user_entry, user_stack_top);
    
     printf("ERROR: enter_user returned.\n");
     

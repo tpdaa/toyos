@@ -2,8 +2,12 @@
 #include "memlayout.h"
 #include "kalloc.h"
 #include "printf.h"
+#include "user.h"
 
 pagetable_t kernel_pagetable;
+pagetable_t user_pagetable;
+uint64 user_entry;
+uint64 user_stack_top;
 
 extern char user_start[];
 extern char user_end[];
@@ -99,14 +103,19 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     return 0;
 }
 
-static void kvmmap(uint64 va, uint64 pa, uint64 size, int perm)
+static void map_or_panic(pagetable_t pagetable,
+                         uint64 va,
+                         uint64 pa,
+                         uint64 size,
+                         int perm)
 {
-    if(mappages(kernel_pagetable, va, size, pa, perm) != 0)
-    {
-        printf("kvmmap: failed va=%p pa=%p size=%lx\n",(void *)va,(void *)pa,size);
+    if (mappages(pagetable, va, size, pa, perm) != 0) {
+        printf("map_or_panic: failed va=%p pa=%p size=%lx\n",
+               (void *)va, (void *)pa, size);
 
-        for(;;)
-        {asm volatile("wfi");}
+        for (;;) {
+            asm volatile("wfi");
+        }
     }
 }
 
@@ -124,37 +133,108 @@ void kvminit(void)
 
     memset_bytes(kernel_pagetable,0, PGSIZE);
 
-    uint64 us = PGROUNDDOWN((uint64)user_start);
-    uint64 ue = PGROUNDUP((uint64)user_end);
+    map_or_panic(kernel_pagetable, KERNBASE, KERNBASE, PHYSTOP - KERNBASE,
+                         PTE_R|PTE_W|PTE_X);
 
-    //Map kernel memory before user section
-    if(us > KERNBASE)
-    {
-        kvmmap(KERNBASE, KERNBASE, us-KERNBASE, PTE_R|PTE_W|PTE_X);
-    }
+    printf("kvminit done. kernel_pagetable=%p\n",
+           (void *)kernel_pagetable);
+}
 
-    kvmmap(us, us, ue - us, PTE_R | PTE_W | PTE_X | PTE_U);
+void vm_switch(pagetable_t pagetable)
+{
+    uint64 satp = MAKE_SATP(pagetable);
 
-    //Map the remaining RAM after user section
-    if(ue <PHYSTOP)
-    {
-        kvmmap(ue, ue, PHYSTOP - ue, PTE_R | PTE_W | PTE_X);
-    }
-
-    printf("kvminit done. kernel_pagetable=%p user=%p-%p\n",
-           (void *)kernel_pagetable, (void *)us, (void *)ue);
+    w_satp(satp);
+    sfence_vma();
 }
 
 void kvminithart(void)
 {
-    uint64 satp = MAKE_SATP(kernel_pagetable);
+    vm_switch(kernel_pagetable);
+    printf("paging enabled. satp=%lx\n", MAKE_SATP(kernel_pagetable));
+}
 
-    w_satp(satp);
-    sfence_vma();
+static void copy_bytes(char *dst, const char *src, uint64 n)
+{
+    for (uint64 i = 0; i < n; i++) {
+        dst[i] = src[i];
+    }
+}
 
-    w_sstatus(r_sstatus() | SSTATUS_SUM);
+void uvminit(void)
+{
+    uint64 image_start = (uint64)user_start;
+    uint64 image_end = (uint64)user_end;
+    uint64 image_size = image_end - image_start;
+    uint64 image_pages = PGROUNDUP(image_size);
 
-    printf("paging enabled. satp=%lx\n",satp);
+    user_pagetable = (pagetable_t)kalloc();
+
+    if (user_pagetable == 0) {
+        printf("uvminit: kalloc root pagetable failed\n");
+        for (;;) {
+            asm volatile("wfi");
+        }
+    }
+
+    memset_bytes(user_pagetable, 0, PGSIZE);
+
+    /*
+     * Map kernel memory into user_pagetable without PTE_U.
+     * This lets S-mode run kernel code after traps while user code
+     * still cannot access kernel pages.
+     */
+    map_or_panic(user_pagetable,
+                 KERNBASE, KERNBASE, PHYSTOP - KERNBASE,
+                 PTE_R | PTE_W | PTE_X);
+
+    /*
+     * Copy user image from kernel .user section to newly allocated pages,
+     * then map those pages at low user virtual addresses.
+     */
+    for (uint64 off = 0; off < image_pages; off += PGSIZE) {
+        char *mem = (char *)kalloc();
+
+        if (mem == 0) {
+            printf("uvminit: kalloc user page failed\n");
+            for (;;) {
+                asm volatile("wfi");
+            }
+        }
+
+        memset_bytes(mem, 0, PGSIZE);
+
+        uint64 n = PGSIZE;
+
+        if (off + n > image_size) {
+            n = image_size - off;
+        }
+
+        copy_bytes(mem, (const char *)(image_start + off), n);
+
+        map_or_panic(user_pagetable,
+                     USERBASE + off,
+                     (uint64)mem,
+                     PGSIZE,
+                     PTE_R | PTE_W | PTE_X | PTE_U);
+    }
+
+    user_entry = USERBASE + ((uint64)user_main - image_start);
+    user_stack_top = USERBASE + ((uint64)user_stack - image_start) + USER_STACK_SIZE;
+
+    printf("uvminit done. user_pagetable=%p entry=%p stack_top=%p image_size=%lx\n",
+           (void *)user_pagetable,
+           (void *)user_entry,
+           (void *)user_stack_top,
+           image_size);
+}
+
+void uvminithart(void)
+{
+    vm_switch(user_pagetable);
+
+    printf("switched to user_pagetable. satp=%lx\n",
+           MAKE_SATP(user_pagetable));
 }
 
 static uint64 walkaddr_perm(pagetable_t pagetable, uint64 va, int perm)
@@ -199,6 +279,7 @@ static void memmove_bytes(char *dst, const char *src, uint64 n)
         dst[i] = src[i];
     }
 }
+
 
 
 int copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)

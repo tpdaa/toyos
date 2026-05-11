@@ -6,6 +6,8 @@
 #define KERNBASE 0x80200000UL
 #define PHYSTOP  0x88000000UL
 
+#define USERBASE 0x1000UL
+
 #define PGROUNDUP(sz)   (((sz)+PGSIZE-1) & ~(PGSIZE - 1))
 #define PGROUNDDOWN(a)  ((a) & ~(PGSIZE - 1))
  

@@ -51,7 +51,7 @@ kernel/user_entry.o: kernel/user.S
 kernel/kalloc.o: kernel/kalloc.c kernel/kalloc.h kernel/memlayout.h kernel/riscv.h kernel/printf.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/vm.o: kernel/vm.c kernel/vm.h kernel/memlayout.h kernel/kalloc.h kernel/printf.h kernel/riscv.h
+kernel/vm.o: kernel/vm.c kernel/vm.h kernel/memlayout.h kernel/kalloc.h kernel/printf.h kernel/riscv.h kernel/user.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 run : kernel.elf

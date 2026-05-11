@@ -6,7 +6,7 @@ static long sys_puts(uint64 uva)
 {
     char buf[256];
 
-    if(copystr(kernel_pagetable, buf ,uva, sizeof(buf)) < 0)
+    if(copystr(user_pagetable, buf ,uva, sizeof(buf)) < 0)
     {
         printf("sys_puts: bad user string %p\n", (void *)uva);
         return -1;
