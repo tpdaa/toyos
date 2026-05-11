@@ -34,9 +34,6 @@ void kernel_trap(struct trapframe *tf)
     if(scause == 8)
     {
         w_sepc(sepc+4);
-
-        set_sstatus(SSTATUS_SUM);
-
         syscall(tf);
         return;
     }

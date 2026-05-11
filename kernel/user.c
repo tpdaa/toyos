@@ -1,14 +1,14 @@
 #include "syscall.h"
 #include "user.h"
 
-static const char hello[] __attribute__((section(".user.rodata"))) =
+static const char hello[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "Hello from U-mode via syscall!\n";
 
 unsigned char user_stack[USER_STACK_SIZE]
-    __attribute__((aligned(16), section(".user.bss")));
+    __attribute__((used, aligned(16), section(".user.bss")));
 
 static long user_syscall(long num, long arg0, long arg1, long arg2)
-    __attribute__((section(".user.text")));
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
 
 static long user_syscall(long num,long arg0, long arg1,long arg2)
 {
@@ -27,7 +27,7 @@ static long user_syscall(long num,long arg0, long arg1,long arg2)
     return a0;
 } 
 
-void user_main(void) __attribute__((section(".user.text")));
+void user_main(void) __attribute__((used, noinline, aligned(16), section(".user.text")));
 
 void user_main(void)
 {

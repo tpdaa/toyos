@@ -1,13 +1,19 @@
 #include "syscall.h"
 #include "printf.h"
+#include "vm.h"
 
-static long sys_puts(const char *s)
+static long sys_puts(uint64 uva)
 {
-    if(s == 0)
-    {    return -1;}
+    char buf[256];
+
+    if(copystr(kernel_pagetable, buf ,uva, sizeof(buf)) < 0)
+    {
+        printf("sys_puts: bad user string %p\n", (void *)uva);
+        return -1;
+    }
     
-        printf("%s",s);
-        return 0;
+    printf("%s",buf);
+    return 0;
 }
 
 static long sys_exit(long code)
@@ -30,7 +36,7 @@ void syscall(struct trapframe *tf)
     switch(num)
     {
         case SYS_puts:
-            tf->a0 = sys_puts((const char *)tf->a0);
+            tf->a0 = sys_puts(tf->a0);
             break;
         case SYS_exit:
             tf->a0 = sys_exit((long)tf->a0);

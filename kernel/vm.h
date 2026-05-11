@@ -36,4 +36,12 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 void kvminit(void);
 void kvminithart(void);
 
+uint64 walkaddr(pagetable_t pagetable, uint64 va);
+
+int copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len);
+int copyout(pagetable_t pagetable, uint64 dstva, const char *src, uint64 len);
+int copystr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max);
+
+void vmprint_pte(uint64 va);
+
 #endif

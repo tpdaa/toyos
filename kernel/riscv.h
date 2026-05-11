@@ -77,4 +77,9 @@ static inline void set_sstatus(uint64 x)
     asm volatile("csrs sstatus, %0" : : "r"(x));
 }
 
+static inline void clear_sstatus(uint64 x)
+{
+    asm volatile("csrc sstatus, %0" : : "r"(x));
+}
+
 #endif

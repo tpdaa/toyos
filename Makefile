@@ -39,7 +39,7 @@ kernel/trap.o: kernel/trap.c kernel/trap.h kernel/trapframe.h kernel/riscv.h ker
 kernel/trap_entry.o: kernel/trap.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/syscall.o: kernel/syscall.c kernel/syscall.h kernel/trapframe.h kernel/printf.h
+kernel/syscall.o: kernel/syscall.c kernel/syscall.h kernel/trapframe.h kernel/printf.h kernel/vm.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/user.o: kernel/user.c kernel/user.h kernel/syscall.h 
