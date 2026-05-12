@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "kalloc.h"
 #include "vm.h"
+#include "proc.h"
 
 void start(void)
 {
@@ -30,13 +31,16 @@ void start(void)
     kvminit();
    // kvminithart();
     
-    uvminit();
-    uvminithart();
+    procinit();
+
+    struct proc *p = userinit();
+
+    uvminithart(p->pagetable);
 
     printf("enter user mode...\n");
 
-    enter_user(user_entry, user_stack_top);
-   
+    enter_user(p->entry, p->stack_top);
+    
     printf("ERROR: enter_user returned.\n");
     
     for(;;)

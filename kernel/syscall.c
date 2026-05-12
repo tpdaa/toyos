@@ -1,13 +1,19 @@
 #include "syscall.h"
 #include "printf.h"
 #include "vm.h"
+#include "proc.h"
 
 static long sys_puts(uint64 uva)
 {
     char buf[256];
+    struct proc *p = myproc();
 
-    if(copystr(user_pagetable, buf ,uva, sizeof(buf)) < 0)
-    {
+    if (p == 0 || p->pagetable == 0) {
+        printf("sys_puts: no current process\n");
+        return -1;
+    }
+
+    if (copystr(p->pagetable, buf, uva, sizeof(buf)) < 0) {
         printf("sys_puts: bad user string %p\n", (void *)uva);
         return -1;
     }
@@ -18,7 +24,15 @@ static long sys_puts(uint64 uva)
 
 static long sys_exit(long code)
 {
-    printf("user exit, code=%ld\n",code);
+    struct proc *p = myproc();
+
+    if (p) {
+        p->state = ZOMBIE;
+        printf("user exit, pid=%d code=%ld\n", p->pid, code);
+    } else {
+        printf("user exit, code=%ld\n", code);
+    }
+
 
     for(;;)
     {

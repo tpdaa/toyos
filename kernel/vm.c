@@ -3,11 +3,9 @@
 #include "kalloc.h"
 #include "printf.h"
 #include "user.h"
+#include "proc.h"
 
 pagetable_t kernel_pagetable;
-pagetable_t user_pagetable;
-uint64 user_entry;
-uint64 user_stack_top;
 
 extern char user_start[];
 extern char user_end[];
@@ -161,30 +159,30 @@ static void copy_bytes(char *dst, const char *src, uint64 n)
     }
 }
 
-void uvminit(void)
+void uvminit(struct proc *p)
 {
     uint64 image_start = (uint64)user_start;
     uint64 image_end = (uint64)user_end;
     uint64 image_size = image_end - image_start;
     uint64 image_pages = PGROUNDUP(image_size);
 
-    user_pagetable = (pagetable_t)kalloc();
+    p->pagetable = (pagetable_t)kalloc();
 
-    if (user_pagetable == 0) {
+    if (p->pagetable == 0) {
         printf("uvminit: kalloc root pagetable failed\n");
         for (;;) {
             asm volatile("wfi");
         }
     }
 
-    memset_bytes(user_pagetable, 0, PGSIZE);
+    memset_bytes(p->pagetable, 0, PGSIZE);
 
     /*
      * Map kernel memory into user_pagetable without PTE_U.
      * This lets S-mode run kernel code after traps while user code
      * still cannot access kernel pages.
      */
-    map_or_panic(user_pagetable,
+    map_or_panic(p->pagetable,
                  KERNBASE, KERNBASE, PHYSTOP - KERNBASE,
                  PTE_R | PTE_W | PTE_X);
 
@@ -212,29 +210,29 @@ void uvminit(void)
 
         copy_bytes(mem, (const char *)(image_start + off), n);
 
-        map_or_panic(user_pagetable,
+        map_or_panic(p->pagetable,
                      USERBASE + off,
                      (uint64)mem,
                      PGSIZE,
                      PTE_R | PTE_W | PTE_X | PTE_U);
     }
 
-    user_entry = USERBASE + ((uint64)user_main - image_start);
-    user_stack_top = USERBASE + ((uint64)user_stack - image_start) + USER_STACK_SIZE;
+    p->entry = USERBASE + ((uint64)user_main - image_start);
+    p->stack_top = USERBASE + ((uint64)user_stack - image_start) + USER_STACK_SIZE;
 
     printf("uvminit done. user_pagetable=%p entry=%p stack_top=%p image_size=%lx\n",
-           (void *)user_pagetable,
-           (void *)user_entry,
-           (void *)user_stack_top,
+           (void *)p->pagetable,
+           (void *)p->entry,
+           (void *)p->stack_top,
            image_size);
 }
 
-void uvminithart(void)
+void uvminithart(pagetable_t pagetable)
 {
-    vm_switch(user_pagetable);
+    vm_switch(pagetable);
 
     printf("switched to user_pagetable. satp=%lx\n",
-           MAKE_SATP(user_pagetable));
+           MAKE_SATP(pagetable));
 }
 
 static uint64 walkaddr_perm(pagetable_t pagetable, uint64 va, int perm)

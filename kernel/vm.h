@@ -38,12 +38,9 @@ void kvminithart(void);
 
 void vm_switch(pagetable_t pagetable);
 
-extern pagetable_t user_pagetable;
-extern uint64 user_entry;
-extern uint64 user_stack_top;
-
-void uvminit(void);
-void uvminithart(void);
+struct proc;
+void uvminit(struct proc *p);
+void uvminithart(pagetable_t pagetable);
 
 uint64 walkaddr(pagetable_t pagetable, uint64 va);
 
