@@ -61,5 +61,6 @@ struct proc *userinit(void);
 struct proc *myproc(void);
 uint64 proc_kstack_top(struct proc *p);
 void scheduler(void);
+void yield(void);
 
 #endif

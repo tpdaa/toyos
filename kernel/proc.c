@@ -140,6 +140,46 @@ struct proc *myproc(void)
     return current_proc;
 }
 
+void yield(void)
+{
+    struct proc *p = myproc();
+
+    if (p == 0) 
+    {
+        printf("yield: no current proc\n");
+
+        for (;;) 
+        {
+            asm volatile("wfi");
+        }
+    }
+
+    printf("yield: pid=%d give up CPU\n", p->pid);
+
+    /*
+     * 当前进程主动让出 CPU。
+     * 它不是结束了，而是重新变成 RUNNABLE，
+     * 等待 scheduler 下次再选择它。
+     */
+    p->state = RUNNABLE;
+
+    /*
+     * 保存当前进程的内核上下文到 p->context，
+     * 恢复 scheduler 的上下文。
+     *
+     * 以后 scheduler 再次选择这个进程时，
+     * 会通过 swtch(&scheduler_context, &p->context)
+     * 回到这里的 swtch 后面。
+     */
+    swtch(&p->context, &scheduler_context);
+
+    /*
+     * 当进程再次被 scheduler 选中后，
+     * 会从这里继续执行。
+     */
+    printf("yield: pid=%d resumed\n", p->pid);
+}
+
 /*
  * forkret 是进程第一次被调度运行时进入的函数。
  *
@@ -215,11 +255,8 @@ void scheduler(void)
                  */
                 swtch(&scheduler_context, &p->context);
 
-                /*
-                 * 目前还没有 yield，所以正常情况下暂时不会回到这里。
-                 * 后面实现 yield 后，进程会 swtch 回 scheduler，
-                 * 然后会从这里继续执行。
-                 */
+                printf("scheduler: back from pid=%d state=%d\n", p->pid, p->state);
+                
                 current_proc = 0;
             }
         }

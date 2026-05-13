@@ -1,8 +1,11 @@
 #include "syscall.h"
 #include "user.h"
 
-static const char hello[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Hello from U-mode via syscall!\n";
+static const char hello_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Hello before yield!\n";
+
+static const char hello_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Hello after yield!\n";
 
 unsigned char user_stack[USER_STACK_SIZE]
     __attribute__((used, aligned(16), section(".user.bss")));
@@ -31,8 +34,13 @@ void user_main(void) __attribute__((used, noinline, aligned(16), section(".user.
 
 void user_main(void)
 {
-    user_syscall(SYS_puts,(long)hello,0,0);
-    user_syscall(SYS_exit,0,0,0);
+    user_syscall(SYS_puts, (long)hello_before, 0, 0);
 
-    for(;;){}
+    user_syscall(SYS_yield, 0, 0, 0);
+
+    user_syscall(SYS_puts, (long)hello_after, 0, 0);
+
+    user_syscall(SYS_exit, 0, 0, 0);
+
+    for (;;) {}
 }

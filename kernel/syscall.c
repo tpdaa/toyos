@@ -55,6 +55,10 @@ void syscall(struct trapframe *tf)
         case SYS_exit:
             tf->a0 = sys_exit((long)tf->a0);
             break;
+        case SYS_yield:
+            yield();
+            tf->a0 = 0;
+            break;
         default:
             printf("unknown syscall: %ld\n",num);
             tf->a0 = (uint64)-1;
