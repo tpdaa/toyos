@@ -22,25 +22,6 @@ static long sys_puts(uint64 uva)
     return 0;
 }
 
-static long sys_exit(long code)
-{
-    struct proc *p = myproc();
-
-    if (p) {
-        p->state = ZOMBIE;
-        printf("user exit, pid=%d code=%ld\n", p->pid, code);
-    } else {
-        printf("user exit, code=%ld\n", code);
-    }
-
-
-    for(;;)
-    {
-        asm volatile("wfi");
-    }
-    return 0;
-}
-
 void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
@@ -53,7 +34,7 @@ void syscall(struct trapframe *tf)
             tf->a0 = sys_puts(tf->a0);
             break;
         case SYS_exit:
-            tf->a0 = sys_exit((long)tf->a0);
+            proc_exit((int)tf->a0);
             break;
         case SYS_yield:
             yield();

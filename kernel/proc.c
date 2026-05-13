@@ -113,26 +113,42 @@ static struct proc *allocproc(void)
 
 struct proc *userinit(void)
 {
-    struct proc *p = allocproc();
+    struct proc *first = 0;
 
-    if (p == 0) 
+    for (int i = 0; i < NPROC; i++) 
     {
-        printf("userinit: allocproc failed\n");
+        struct proc *p = allocproc();
 
-        for (;;) 
+        if (p == 0) 
         {
-            asm volatile("wfi");
+            printf("userinit: allocproc failed\n");
+
+            for (;;) 
+            {
+                asm volatile("wfi");
+            }
         }
+
+        uvminit(p);
+
+        if (i == 0) 
+        {
+            safestrcpy(p->name, "init1", sizeof(p->name));
+            initproc = p;
+            first = p;
+        } 
+        else 
+        {
+            safestrcpy(p->name, "init2", sizeof(p->name));
+        }
+
+        p->state = RUNNABLE;
+
+        printf("userinit: pid=%d name=%s state=RUNNABLE\n", p->pid, p->name);
     }
+    
 
-    uvminit(p);
-
-    p->state = RUNNABLE;
-    initproc = p;
-
-    printf("userinit done. pid=%d state=RUNNABLE\n", p->pid);
-
-    return p;
+    return first;
 }
 
 struct proc *myproc(void)
@@ -180,6 +196,34 @@ void yield(void)
     printf("yield: pid=%d resumed\n", p->pid);
 }
 
+void proc_exit(int code)
+{
+    struct proc *p = myproc();
+
+    if (p == 0) 
+    {
+        printf("proc_exit: no current proc\n");
+
+        for (;;) 
+        {
+            asm volatile("wfi");
+        }
+    }
+
+    printf("user exit, pid=%d code=%d\n", p->pid, code);
+
+    p->state = ZOMBIE;
+
+    swtch(&p->context, &scheduler_context);
+
+    printf("proc_exit: ERROR: zombie process resumed, pid=%d\n", p->pid);
+
+    for (;;) 
+    {
+        asm volatile("wfi");
+    }
+}
+
 /*
  * forkret 是进程第一次被调度运行时进入的函数。
  *
@@ -218,17 +262,22 @@ void scheduler(void)
 {
     printf("scheduler start.\n");
 
+    int next = 0;
+
     for (;;) 
     {
         int found = 0;
-
-        for (int i = 0; i < NPROC; i++) 
+        
+        for (int n = 0; n < NPROC; n++) 
         {
+            int i = (next + n) % NPROC;
             struct proc *p = &proc[i];
 
             if (p->state == RUNNABLE) 
             {
                 found = 1;
+
+                next = (i + 1) % NPROC;
 
                 current_proc = p;
                 p->state = RUNNING;
@@ -256,8 +305,10 @@ void scheduler(void)
                 swtch(&scheduler_context, &p->context);
 
                 printf("scheduler: back from pid=%d state=%d\n", p->pid, p->state);
-                
+
                 current_proc = 0;
+
+                break;
             }
         }
 

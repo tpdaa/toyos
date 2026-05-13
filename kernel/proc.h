@@ -5,7 +5,7 @@
 #include "vm.h"
 #include "trapframe.h"
 
-#define NPROC 1
+#define NPROC 2
 #define KSTACK_SIZE 8192
 
 enum procstate 
@@ -62,5 +62,6 @@ struct proc *myproc(void);
 uint64 proc_kstack_top(struct proc *p);
 void scheduler(void);
 void yield(void);
+void proc_exit(int code);
 
 #endif
