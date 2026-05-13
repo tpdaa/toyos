@@ -33,18 +33,13 @@ void start(void)
     
     procinit();
 
-    struct proc *p = userinit();
+    userinit();
+    scheduler();
 
-    uvminithart(p->pagetable);
-
-    printf("enter user mode...\n");
-
-    enter_user(p->entry, p->stack_top);
-    
     printf("ERROR: enter_user returned.\n");
     
     for(;;)
     {
         asm volatile("wfi");//wfi 是 RISC-V 的 “wait for interrupt” 指令，可以理解成“闲置等待”。
     }
-};
+}
