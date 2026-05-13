@@ -263,6 +263,7 @@ void scheduler(void)
     printf("scheduler start.\n");
 
     int next = 0;
+    int idle_printed = 0;
 
     for (;;) 
     {
@@ -276,6 +277,7 @@ void scheduler(void)
             if (p->state == RUNNABLE) 
             {
                 found = 1;
+                idle_printed = 0;
 
                 next = (i + 1) % NPROC;
 
@@ -314,6 +316,12 @@ void scheduler(void)
 
         if (!found) 
         {
+            if (!idle_printed)
+            {
+                printf("scheduler: no runnable process, idle.\n");
+                idle_printed = 1;
+            }
+            
             asm volatile("wfi");
         }
     }

@@ -1,11 +1,24 @@
 #include "syscall.h"
 #include "user.h"
 
-static const char hello_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Hello before yield!\n";
+static const char p1_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Process 1: before yield!\n";
 
-static const char hello_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Hello after yield!\n";
+static const char p1_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Process 1: after yield!\n";
+
+static const char p2_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Process 2: before yield!\n";
+
+static const char p2_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Process 2: after yield!\n";
+
+static const char unknown_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Unknown process: before yield!\n";
+
+static const char unknown_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "Unknown process: after yield!\n";
+
 
 unsigned char user_stack[USER_STACK_SIZE]
     __attribute__((used, aligned(16), section(".user.bss")));
@@ -34,11 +47,35 @@ void user_main(void) __attribute__((used, noinline, aligned(16), section(".user.
 
 void user_main(void)
 {
-    user_syscall(SYS_puts, (long)hello_before, 0, 0);
+    long pid = user_syscall(SYS_getpid, 0, 0, 0);
+
+    if (pid == 1)
+    {
+        user_syscall(SYS_puts, (long)p1_before, 0, 0);
+    }
+    else if (pid == 2)
+    {
+        user_syscall(SYS_puts, (long)p2_before, 0, 0);
+    }
+    else
+    {
+        user_syscall(SYS_puts, (long)unknown_before, 0, 0);
+    }
 
     user_syscall(SYS_yield, 0, 0, 0);
 
-    user_syscall(SYS_puts, (long)hello_after, 0, 0);
+    if (pid == 1)
+    {
+        user_syscall(SYS_puts, (long)p1_after, 0, 0);
+    }
+    else if (pid == 2)
+    {
+        user_syscall(SYS_puts, (long)p2_after, 0, 0);
+    }
+    else
+    {
+        user_syscall(SYS_puts, (long)unknown_after, 0, 0);
+    }
 
     user_syscall(SYS_exit, 0, 0, 0);
 

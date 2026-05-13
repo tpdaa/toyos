@@ -40,6 +40,21 @@ void syscall(struct trapframe *tf)
             yield();
             tf->a0 = 0;
             break;
+        case SYS_getpid:
+        {
+            struct proc *p = myproc();
+
+            if (p == 0)
+            {
+                tf->a0 = -1;
+            }
+            else
+            {
+                tf->a0 = p->pid;
+            }
+
+            break;
+        }
         default:
             printf("unknown syscall: %ld\n",num);
             tf->a0 = (uint64)-1;
