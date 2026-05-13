@@ -43,11 +43,23 @@ static long user_syscall(long num,long arg0, long arg1,long arg2)
     return a0;
 } 
 
+static void user_delay(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void user_delay(void)
+{
+    for (volatile long i = 0; i < 100000000; i++) 
+    {
+    }
+}
+
 void user_main(void) __attribute__((used, noinline, aligned(16), section(".user.text")));
 
 void user_main(void)
 {
     long pid = user_syscall(SYS_getpid, 0, 0, 0);
+
+    user_delay();
 
     if (pid == 1)
     {

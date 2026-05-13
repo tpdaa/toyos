@@ -5,6 +5,7 @@
 #include "kalloc.h"
 #include "vm.h"
 #include "proc.h"
+#include "timer.h"
 
 void start(void)
 {
@@ -34,6 +35,9 @@ void start(void)
     procinit();
 
     userinit();
+
+    timer_init();
+    
     scheduler();
 
     printf("ERROR: enter_user returned.\n");

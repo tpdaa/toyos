@@ -18,6 +18,7 @@ KERNEL_OBJS = \
 	kernel/vm.o \
 	kernel/proc.o \
 	kernel/swtch.o \
+	kernel/timer.o \
 	
 all: kernel.elf
 kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
@@ -26,7 +27,7 @@ kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
 kernel/entry.o: kernel/entry.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/start.o: kernel/start.c kernel/printf.h kernel/trap.h kernel/kalloc.h kernel/riscv.h kernel/user.h kernel/vm.h kernel/proc.h
+kernel/start.o: kernel/start.c kernel/printf.h kernel/trap.h kernel/kalloc.h kernel/riscv.h kernel/user.h kernel/vm.h kernel/proc.h kernel/timer.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/sbi.o: kernel/sbi.c kernel/sbi.h
@@ -35,7 +36,7 @@ kernel/sbi.o: kernel/sbi.c kernel/sbi.h
 kernel/printf.o: kernel/printf.c kernel/printf.h  kernel/sbi.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/trap.o: kernel/trap.c kernel/trap.h kernel/trapframe.h kernel/riscv.h kernel/printf.h kernel/proc.h
+kernel/trap.o: kernel/trap.c kernel/trap.h kernel/trapframe.h kernel/riscv.h kernel/printf.h kernel/proc.h kernel/timer.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/trap_entry.o: kernel/trap.S
@@ -60,6 +61,9 @@ kernel/proc.o: kernel/proc.c kernel/proc.h kernel/vm.h kernel/printf.h kernel/tr
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/swtch.o: kernel/swtch.S
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+kernel/timer.o: kernel/timer.c kernel/timer.h kernel/riscv.h kernel/sbi.h kernel/printf.h kernel/proc.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 run : kernel.elf

@@ -22,3 +22,8 @@ void sbi_console_putchar(int ch)
 {
     sbi_call(1,ch,0,0);
 }
+
+void sbi_set_timer(uint64 stime_value)
+{
+    sbi_call(0, stime_value, 0, 0);
+}

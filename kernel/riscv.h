@@ -6,6 +6,12 @@ typedef unsigned long uint64;
 #define SSTATUS_SPP  (1L << 8)//SSP位掩码
 #define SSTATUS_SPIE (1L << 5)//SPIE位掩码
 #define SSTATUS_SUM  (1L << 18)
+#define SSTATUS_SIE (1L << 1)
+
+#define SIE_STIE (1L << 5)
+
+#define SCAUSE_INTERRUPT (1ULL << 63)
+#define SCAUSE_TIMER     5
 
 static inline uint64 r_scause(void)
 {
@@ -80,6 +86,20 @@ static inline void set_sstatus(uint64 x)
 static inline void clear_sstatus(uint64 x)
 {
     asm volatile("csrc sstatus, %0" : : "r"(x));
+}
+
+static inline uint64
+r_sie(void)
+{
+    uint64 x;
+    asm volatile("csrr %0, sie" : "=r" (x));
+    return x;
+}
+
+static inline void
+w_sie(uint64 x)
+{
+    asm volatile("csrw sie, %0" : : "r" (x));
 }
 
 #endif

@@ -4,6 +4,7 @@
 #include "trapframe.h"
 #include "syscall.h"
 #include "proc.h"
+#include "timer.h"
 
 extern void trap_entry(void);
 
@@ -47,6 +48,18 @@ void kernel_trap(struct trapframe *tf)
     printf("trap happened: scause=%lx sepc=%p stval=%lx\n",
             scause,(void *)sepc,stval);
 
+    if ((scause & SCAUSE_INTERRUPT) && ((scause & ~SCAUSE_INTERRUPT) == SCAUSE_TIMER))
+    {
+        timer_tick();
+
+        if (from_user && p != 0) 
+        {
+            copy_trapframe(stack_tf, &p->trapframe);
+        }
+
+        return;
+    }
+    
     if(scause == 8)
     {
         w_sepc(sepc+4);
@@ -59,8 +72,7 @@ void kernel_trap(struct trapframe *tf)
 
         return;
     }
-   
-        
+    
     if(scause==3)
     {
         printf("trapframe: tf=%p a0=%lx a1=%lx a7=%lx\n",

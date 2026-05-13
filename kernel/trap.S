@@ -1,4 +1,5 @@
     .section .text
+    .balign 4
     .globl trap_entry
     .extern kernel_trap
 
