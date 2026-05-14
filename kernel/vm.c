@@ -159,6 +159,88 @@ static void copy_bytes(char *dst, const char *src, uint64 n)
     }
 }
 
+pagetable_t uvmcreate(void)
+{
+    pagetable_t pagetable = (pagetable_t)kalloc();
+
+    if (pagetable == 0)
+    {
+        return 0;
+    }
+
+    memset_bytes(pagetable, 0, PGSIZE);
+
+    /*
+     * 用户页表也映射内核高地址，但不带 PTE_U。
+     * 这样 trap 进入内核后，S-mode 仍能执行内核代码。
+     */
+    if (mappages(pagetable,
+                 KERNBASE,
+                 PHYSTOP - KERNBASE,
+                 KERNBASE,
+                 PTE_R | PTE_W | PTE_X) != 0)
+    {
+        return 0;
+    }
+
+    return pagetable;
+}
+
+int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
+{
+    for (uint64 off = 0; off < sz; off += PGSIZE)
+    {
+        uint64 va = USERBASE + off;
+
+        pte_t *pte = walk(old, va, 0);
+
+        if (pte == 0)
+        {
+            printf("uvmcopy: pte not found va=%p\n", (void *)va);
+            return -1;
+        }
+
+        if ((*pte & PTE_V) == 0)
+        {
+            printf("uvmcopy: pte not valid va=%p\n", (void *)va);
+            return -1;
+        }
+
+        if ((*pte & PTE_U) == 0)
+        {
+            /*
+             * 这里只复制用户页。
+             */
+            continue;
+        }
+
+        uint64 pa = PTE2PA(*pte);
+        int flags = PTE_FLAGS(*pte);
+
+        char *mem = (char *)kalloc();
+
+        if (mem == 0)
+        {
+            printf("uvmcopy: kalloc failed\n");
+            return -1;
+        }
+
+        copy_bytes(mem, (const char *)pa, PGSIZE);
+
+        if (mappages(new,
+                     va,
+                     PGSIZE,
+                     (uint64)mem,
+                     flags & ~PTE_V) != 0)
+        {
+            printf("uvmcopy: mappages failed va=%p\n", (void *)va);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 void uvminit(struct proc *p)
 {
     uint64 image_start = (uint64)user_start;
@@ -166,25 +248,16 @@ void uvminit(struct proc *p)
     uint64 image_size = image_end - image_start;
     uint64 image_pages = PGROUNDUP(image_size);
 
-    p->pagetable = (pagetable_t)kalloc();
+    p->pagetable = uvmcreate();
 
-    if (p->pagetable == 0) {
-        printf("uvminit: kalloc root pagetable failed\n");
-        for (;;) {
+    if (p->pagetable == 0)
+    {
+        printf("uvminit: uvmcreate failed\n");
+        for (;;)
+        {
             asm volatile("wfi");
         }
     }
-
-    memset_bytes(p->pagetable, 0, PGSIZE);
-
-    /*
-     * Map kernel memory into user_pagetable without PTE_U.
-     * This lets S-mode run kernel code after traps while user code
-     * still cannot access kernel pages.
-     */
-    map_or_panic(p->pagetable,
-                 KERNBASE, KERNBASE, PHYSTOP - KERNBASE,
-                 PTE_R | PTE_W | PTE_X);
 
     /*
      * Copy user image from kernel .user section to newly allocated pages,
@@ -219,6 +292,11 @@ void uvminit(struct proc *p)
 
     p->entry = USERBASE + ((uint64)user_main - image_start);
     p->stack_top = USERBASE + ((uint64)user_stack - image_start) + USER_STACK_SIZE;
+
+
+    p->user_pc = p->entry;
+    p->trapframe.sp = p->stack_top;
+    p->sz = image_pages;
 
     printf("uvminit done. user_pagetable=%p entry=%p stack_top=%p image_size=%lx\n",
            (void *)p->pagetable,

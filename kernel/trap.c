@@ -23,7 +23,8 @@ static void copy_trapframe(struct trapframe *dst, struct trapframe *src)
     uint64 *d = (uint64 *)dst;
     uint64 *s = (uint64 *)src;
 
-    for (int i = 0; i < sizeof(struct trapframe) / sizeof(uint64); i++) {
+    for (int i = 0; i < sizeof(struct trapframe) / sizeof(uint64); i++) 
+    {
         d[i] = s[i];
     }
 }
@@ -52,6 +53,11 @@ void kernel_trap(struct trapframe *tf)
     {
         int need_yield = timer_tick();
 
+        if (from_user && p != 0)
+        {
+            p->user_pc = sepc;
+        }
+
         //只有时间片用完时，才触发抢占式调度。
         if (need_yield && from_user && p != 0 && p->state == RUNNING)
         {
@@ -75,6 +81,16 @@ void kernel_trap(struct trapframe *tf)
     
     if(scause == 8)
     {
+        /*
+        * ecall 是同步异常。
+        * fork 子进程必须从 ecall 后一条指令继续执行，
+        * 所以在进入 syscall 前先记录 user_pc。
+        */
+        if (from_user && p != 0)
+        {
+            p->user_pc = sepc + 4;
+        }
+
         syscall(tf);
         w_sepc(sepc + 4);
 

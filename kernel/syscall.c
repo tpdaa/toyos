@@ -22,6 +22,11 @@ static long sys_puts(uint64 uva)
     return 0;
 }
 
+static long sys_fork(void)
+{
+    return proc_fork();
+}
+
 void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
@@ -55,6 +60,9 @@ void syscall(struct trapframe *tf)
 
             break;
         }
+        case SYS_fork:
+            tf->a0 = sys_fork();
+            break;
         default:
             printf("unknown syscall: %ld\n",num);
             tf->a0 = (uint64)-1;

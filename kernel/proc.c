@@ -12,6 +12,7 @@ static struct context scheduler_context;
 static int nextpid = 1;
 
 extern void enter_user(uint64 entry, uint64 sp);
+extern void usertrapret(struct trapframe *tf, uint64 user_pc, uint64 kstack_top);
 extern void swtch(struct context *old, struct context *new);
 
 static void forkret(void);
@@ -57,6 +58,8 @@ void procinit(void)
         proc[i].pagetable = 0;
         proc[i].entry = 0;
         proc[i].stack_top = 0;
+        proc[i].user_pc = 0;
+        proc[i].sz = 0;
         proc[i].parent = 0;
         proc[i].xstate = 0;
 
@@ -86,6 +89,8 @@ static struct proc *allocproc(void)
             p->pagetable = 0;
             p->entry = 0;
             p->stack_top = 0;
+            p->user_pc = 0;
+            p->sz = 0;
             p->parent = 0;
             p->xstate = 0;
 
@@ -120,7 +125,7 @@ struct proc *userinit(void)
 {
     struct proc *first = 0;
 
-    for (int i = 0; i < 2; i++) 
+    for (int i = 0; i < 1; i++) 
     {
         struct proc *p = allocproc();
 
@@ -248,9 +253,10 @@ static void forkret(void)
         }
     }
 
-    printf("forkret: pid=%d enter user mode...\n", p->pid);
+    printf("forkret: pid=%d enter user mode pc=%p\n",
+           p->pid, (void *)p->user_pc);
 
-    enter_user(p->entry, p->stack_top);
+    usertrapret(&p->trapframe, p->user_pc, proc_kstack_top(p));
 
     printf("forkret: ERROR: enter_user returned.\n");
 
@@ -327,4 +333,84 @@ void scheduler(void)
             asm volatile("wfi");
         }
     }
+}
+
+static void copy_trapframe(struct trapframe *dst, struct trapframe *src)
+{
+    uint64 *d = (uint64 *)dst;
+    uint64 *s = (uint64 *)src;
+
+    for (int i = 0; i < sizeof(struct trapframe) / sizeof(uint64); i++) 
+    {
+        d[i] = s[i];
+    }
+}
+
+
+int proc_fork(void)
+{
+    struct proc *p = myproc();
+
+    if (p == 0)
+    {
+        return -1;
+    }
+
+    struct proc *np = allocproc();
+
+    if (np == 0)
+    {
+        printf("fork: allocproc failed\n");
+        return -1;
+    }
+
+    np->pagetable = uvmcreate();
+
+    if (np->pagetable == 0)
+    {
+        printf("fork: uvmcreate failed\n");
+        np->state = UNUSED;
+        return -1;
+    }
+
+    if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
+    {
+        printf("fork: uvmcopy failed\n");
+        np->state = UNUSED;
+        return -1;
+    }
+
+    /*
+     * 复制父进程的用户态执行现场。
+     */
+    copy_trapframe(&np->trapframe, &p->trapframe);
+
+    /*
+     * fork 的关键语义：
+     * 子进程从 fork 返回 0。
+     */
+    np->trapframe.a0 = 0;
+
+    /*
+     * 父子从同一个用户地址继续执行。
+     */
+    np->entry = p->entry;
+    np->stack_top = p->stack_top;
+    np->user_pc = p->user_pc;
+    np->sz = p->sz;
+
+    np->parent = p;
+    np->xstate = 0;
+
+    safestrcpy(np->name, "child", sizeof(np->name));
+
+    np->state = RUNNABLE;
+
+    printf("fork: parent pid=%d child pid=%d user_pc=%p\n",
+           p->pid, np->pid, (void *)np->user_pc);
+
+    /*
+     * 父进程从 fork 返回子进程 pid。
+     */
+    return np->pid;
 }

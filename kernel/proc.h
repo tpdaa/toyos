@@ -45,6 +45,8 @@ struct proc
 
     uint64 entry;
     uint64 stack_top;
+    uint64 user_pc;
+    uint64 sz;
 
     struct trapframe trapframe;
     struct context context;
@@ -66,5 +68,6 @@ uint64 proc_kstack_top(struct proc *p);
 void scheduler(void);
 void yield(void);
 void proc_exit(int code);
+int proc_fork(void);
 
 #endif

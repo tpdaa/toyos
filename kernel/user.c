@@ -1,23 +1,14 @@
 #include "syscall.h"
 #include "user.h"
 
-static const char p1_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 1: before delay!\n";
+static const char parent_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "parent: fork returned child pid\n";
 
-static const char p1_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 1: after delay!\n";
+static const char child_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "child: fork returned 0\n";
 
-static const char p2_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 2: before delay!\n";
-
-static const char p2_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 2: after delay!\n";
-
-static const char unknown_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Unknown process: before delay!\n";
-
-static const char unknown_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Unknown process: after delay!\n";
+static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "fork failed\n";
 
 
 unsigned char user_stack[USER_STACK_SIZE]
@@ -57,34 +48,19 @@ void user_main(void) __attribute__((used, noinline, aligned(16), section(".user.
 
 void user_main(void)
 {
-    long pid = user_syscall(SYS_getpid, 0, 0, 0);
+    long pid = user_syscall(SYS_fork, 0, 0, 0);
 
-    if (pid == 1)
+    if (pid < 0)
     {
-        user_syscall(SYS_puts, (long)p1_before, 0, 0);
+        user_syscall(SYS_puts, (long)fork_fail_msg, 0, 0);
     }
-    else if (pid == 2)
+    else if (pid == 0)
     {
-        user_syscall(SYS_puts, (long)p2_before, 0, 0);
+        user_syscall(SYS_puts, (long)child_msg, 0, 0);
     }
     else
     {
-        user_syscall(SYS_puts, (long)unknown_before, 0, 0);
-    }
-
-    user_delay();
-
-    if (pid == 1)
-    {
-        user_syscall(SYS_puts, (long)p1_after, 0, 0);
-    }
-    else if (pid == 2)
-    {
-        user_syscall(SYS_puts, (long)p2_after, 0, 0);
-    }
-    else
-    {
-        user_syscall(SYS_puts, (long)unknown_after, 0, 0);
+        user_syscall(SYS_puts, (long)parent_msg, 0, 0);
     }
 
     user_syscall(SYS_exit, 0, 0, 0);

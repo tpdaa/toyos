@@ -50,4 +50,7 @@ int copystr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max);
 
 void vmprint_pte(uint64 va);
 
+pagetable_t uvmcreate(void);
+int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz);
+
 #endif
