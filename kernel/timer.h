@@ -4,7 +4,7 @@
 #include "riscv.h"
 
 void timer_init(void);
-void timer_tick(void);
+int timer_tick(void);
 uint64 timer_ticks(void);
 
 #endif

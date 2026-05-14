@@ -13,6 +13,8 @@
  */
 #define TIMER_INTERVAL 1000000UL
 
+#define TIME_SLICE 3
+
 static uint64 ticks;
 
 static uint64 r_time(void)
@@ -51,25 +53,33 @@ void timer_init(void)
     printf("timer init done.\n");
 }
 
-void timer_tick(void)
+int timer_tick(void)
 {
     struct proc *p = myproc();
 
     ticks++;
 
-    if ((ticks % 1) == 0)
+    if (p != 0)
     {
-        if (p != 0)
-        {
-            printf("timer interrupt: ticks=%lx pid=%d\n", ticks, p->pid);
-        }
-        else
-        {
-            printf("timer interrupt: ticks=%lx pid=none\n", ticks);
-        }
+        printf("timer interrupt: ticks=%lx pid=%d\n", ticks, p->pid);
     }
+    else
+    {
+        printf("timer interrupt: ticks=%lx pid=none\n", ticks);
+    }
+    
 
     timer_set_next();
+
+    //每 TIME_SLICE 个 timer tick 触发一次调度。
+    if ((ticks % TIME_SLICE) == 0)
+    {
+        printf("timer: time slice expired.\n");
+        return 1;
+    }
+
+    return 0;
+
 }
 
 uint64 timer_ticks(void)

@@ -50,13 +50,19 @@ void kernel_trap(struct trapframe *tf)
 
     if ((scause & SCAUSE_INTERRUPT) && ((scause & ~SCAUSE_INTERRUPT) == SCAUSE_TIMER))
     {
-        timer_tick();
+        int need_yield = timer_tick();
 
-        if (from_user && p != 0 && p->state == RUNNING)
+        //只有时间片用完时，才触发抢占式调度。
+        if (need_yield && from_user && p != 0 && p->state == RUNNING)
         {
             yield();
         }
 
+         /*
+        * timer interrupt 是异步中断，不需要 sepc + 4。
+        * 但 yield 期间可能切换过其他进程，
+        * 所以返回前要恢复本进程自己的 sepc。
+        */
         w_sepc(sepc);
 
         if (from_user && p != 0) 
