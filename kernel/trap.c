@@ -52,6 +52,13 @@ void kernel_trap(struct trapframe *tf)
     {
         timer_tick();
 
+        if (from_user && p != 0 && p->state == RUNNING)
+        {
+            yield();
+        }
+
+        w_sepc(sepc);
+
         if (from_user && p != 0) 
         {
             copy_trapframe(stack_tf, &p->trapframe);
@@ -62,8 +69,8 @@ void kernel_trap(struct trapframe *tf)
     
     if(scause == 8)
     {
-        w_sepc(sepc+4);
         syscall(tf);
+        w_sepc(sepc + 4);
 
         if (from_user && p != 0) 
         {

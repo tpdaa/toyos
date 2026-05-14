@@ -59,8 +59,6 @@ void user_main(void)
 {
     long pid = user_syscall(SYS_getpid, 0, 0, 0);
 
-    user_delay();
-
     if (pid == 1)
     {
         user_syscall(SYS_puts, (long)p1_before, 0, 0);
@@ -74,7 +72,7 @@ void user_main(void)
         user_syscall(SYS_puts, (long)unknown_before, 0, 0);
     }
 
-    user_syscall(SYS_yield, 0, 0, 0);
+    user_delay();
 
     if (pid == 1)
     {
