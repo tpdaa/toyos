@@ -231,8 +231,8 @@ void uvminithart(pagetable_t pagetable)
 {
     vm_switch(pagetable);
 
-    printf("switched to user_pagetable. satp=%lx\n",
-           MAKE_SATP(pagetable));
+    // printf("switched to user_pagetable. satp=%lx\n",
+    //        MAKE_SATP(pagetable));
 }
 
 static uint64 walkaddr_perm(pagetable_t pagetable, uint64 va, int perm)

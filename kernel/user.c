@@ -2,22 +2,22 @@
 #include "user.h"
 
 static const char p1_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 1: before yield!\n";
+    "Process 1: before delay!\n";
 
 static const char p1_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 1: after yield!\n";
+    "Process 1: after delay!\n";
 
 static const char p2_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 2: before yield!\n";
+    "Process 2: before delay!\n";
 
 static const char p2_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Process 2: after yield!\n";
+    "Process 2: after delay!\n";
 
 static const char unknown_before[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Unknown process: before yield!\n";
+    "Unknown process: before delay!\n";
 
 static const char unknown_after[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "Unknown process: after yield!\n";
+    "Unknown process: after delay!\n";
 
 
 unsigned char user_stack[USER_STACK_SIZE]

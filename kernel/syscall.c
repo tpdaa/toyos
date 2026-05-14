@@ -26,7 +26,7 @@ void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
 
-    printf("syscall: num=%ld\n",num);
+    //printf("syscall: num=%ld\n",num);
 
     switch(num)
     {

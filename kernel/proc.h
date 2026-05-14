@@ -5,7 +5,7 @@
 #include "vm.h"
 #include "trapframe.h"
 
-#define NPROC 2
+#define NPROC 8
 #define KSTACK_SIZE 8192
 
 enum procstate 
@@ -50,6 +50,9 @@ struct proc
     struct context context;
 
     unsigned char kstack[KSTACK_SIZE] __attribute__((aligned(16)));
+
+    struct proc *parent;
+    int xstate;
 
     char name[16];
 };

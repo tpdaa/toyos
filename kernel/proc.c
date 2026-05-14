@@ -57,6 +57,9 @@ void procinit(void)
         proc[i].pagetable = 0;
         proc[i].entry = 0;
         proc[i].stack_top = 0;
+        proc[i].parent = 0;
+        proc[i].xstate = 0;
+
         memset_bytes(&proc[i].trapframe, 0, sizeof(proc[i].trapframe));
         memset_bytes(&proc[i].context, 0, sizeof(proc[i].context));
         memset_bytes(proc[i].kstack, 0, KSTACK_SIZE);
@@ -83,6 +86,8 @@ static struct proc *allocproc(void)
             p->pagetable = 0;
             p->entry = 0;
             p->stack_top = 0;
+            p->parent = 0;
+            p->xstate = 0;
 
             memset_bytes(&p->trapframe, 0, sizeof(p->trapframe));
             memset_bytes(&p->context, 0, sizeof(p->context));
@@ -115,7 +120,7 @@ struct proc *userinit(void)
 {
     struct proc *first = 0;
 
-    for (int i = 0; i < NPROC; i++) 
+    for (int i = 0; i < 2; i++) 
     {
         struct proc *p = allocproc();
 
@@ -163,14 +168,10 @@ void yield(void)
     if (p == 0) 
     {
         printf("yield: no current proc\n");
-
-        for (;;) 
-        {
-            asm volatile("wfi");
-        }
+        return;
     }
 
-    printf("yield: pid=%d give up CPU\n", p->pid);
+    //printf("yield: pid=%d give up CPU\n", p->pid);
 
     /*
      * 当前进程主动让出 CPU。
@@ -193,7 +194,7 @@ void yield(void)
      * 当进程再次被 scheduler 选中后，
      * 会从这里继续执行。
      */
-    printf("yield: pid=%d resumed\n", p->pid);
+    //printf("yield: pid=%d resumed\n", p->pid);
 }
 
 void proc_exit(int code)
@@ -212,6 +213,7 @@ void proc_exit(int code)
 
     printf("user exit, pid=%d code=%d\n", p->pid, code);
 
+    p->xstate = code;
     p->state = ZOMBIE;
 
     swtch(&p->context, &scheduler_context);
@@ -295,7 +297,7 @@ void scheduler(void)
                  */
                 w_sscratch(proc_kstack_top(p));
 
-                printf("scheduler: swtch pid=%d name=%s\n", p->pid, p->name);
+                //printf("scheduler: swtch pid=%d name=%s\n", p->pid, p->name);
 
                 /*
                  * 关键：
@@ -306,7 +308,7 @@ void scheduler(void)
                  */
                 swtch(&scheduler_context, &p->context);
 
-                printf("scheduler: back from pid=%d state=%d\n", p->pid, p->state);
+                //printf("scheduler: back from pid=%d state=%d\n", p->pid, p->state);
 
                 current_proc = 0;
 

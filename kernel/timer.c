@@ -2,7 +2,6 @@
 #include "riscv.h"
 #include "sbi.h"
 #include "printf.h"
-#include "proc.h"
 
 /*
  * QEMU virt 里 OpenSBI 输出过：
@@ -13,9 +12,10 @@
  */
 #define TIMER_INTERVAL 1000000UL
 
-#define TIME_SLICE 3
+#define TIME_SLICE 1
 
-static uint64 ticks;
+static uint64 ticks = 0;
+static int slice_ticks = 0;
 
 static uint64 r_time(void)
 {
@@ -36,7 +36,9 @@ static void timer_set_next(void)
 void timer_init(void)
 {
     ticks = 0;
+    slice_ticks = 0;
 
+    timer_set_next();
     /*
      * 开启 S-mode timer interrupt。
      * SIE_STIE 是 Supervisor Timer Interrupt Enable。
@@ -48,33 +50,20 @@ void timer_init(void)
      */
     //w_sstatus(r_sstatus() | SSTATUS_SIE);
 
-    timer_set_next();
-
     printf("timer init done.\n");
 }
 
 int timer_tick(void)
 {
-    struct proc *p = myproc();
-
     ticks++;
-
-    if (p != 0)
-    {
-        printf("timer interrupt: ticks=%lx pid=%d\n", ticks, p->pid);
-    }
-    else
-    {
-        printf("timer interrupt: ticks=%lx pid=none\n", ticks);
-    }
+    slice_ticks++;
     
-
     timer_set_next();
 
     //每 TIME_SLICE 个 timer tick 触发一次调度。
-    if ((ticks % TIME_SLICE) == 0)
+    if (slice_ticks >= TIME_SLICE)
     {
-        printf("timer: time slice expired.\n");
+        slice_ticks = 0;
         return 1;
     }
 

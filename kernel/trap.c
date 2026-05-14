@@ -35,7 +35,7 @@ void kernel_trap(struct trapframe *tf)
 
     uint64 scause = r_scause();
     uint64 sepc = r_sepc();
-    uint64 stval = r_stval();
+    //uint64 stval = r_stval();
 
     int from_user = (tf->sp != 0);
 
@@ -45,8 +45,8 @@ void kernel_trap(struct trapframe *tf)
         tf = &p->trapframe;
     }
 
-    printf("trap happened: scause=%lx sepc=%p stval=%lx\n",
-            scause,(void *)sepc,stval);
+    // printf("trap happened: scause=%lx sepc=%p stval=%lx\n",
+    //     scause, (void *)sepc, stval);
 
     if ((scause & SCAUSE_INTERRUPT) && ((scause & ~SCAUSE_INTERRUPT) == SCAUSE_TIMER))
     {
