@@ -58,6 +58,7 @@ void user_main(void)
     else if (pid == 0)
     {
         user_syscall(SYS_puts, (long)child_msg, 0, 0);
+        user_delay();
         user_syscall(SYS_exit, 0, 0, 0);
     }
 

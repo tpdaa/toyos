@@ -57,6 +57,7 @@ struct proc
     struct proc *parent;
     int xstate;
 
+    void *chan;
     char name[16];
 };
 
@@ -72,6 +73,7 @@ void proc_exit(int code);
 int proc_fork(void);
 
 int proc_wait(void);
-void wakeup(struct proc *p);
+void proc_sleep(void *chan);
+void wakeup(void *chan);
 
 #endif

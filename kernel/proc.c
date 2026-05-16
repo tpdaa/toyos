@@ -62,6 +62,7 @@ void procinit(void)
         proc[i].sz = 0;
         proc[i].parent = 0;
         proc[i].xstate = 0;
+        proc[i].chan = 0;
 
         memset_bytes(&proc[i].trapframe, 0, sizeof(proc[i].trapframe));
         memset_bytes(&proc[i].context, 0, sizeof(proc[i].context));
@@ -93,6 +94,7 @@ static struct proc *allocproc(void)
             p->sz = 0;
             p->parent = 0;
             p->xstate = 0;
+            p->chan = 0;
 
             memset_bytes(&p->trapframe, 0, sizeof(p->trapframe));
             memset_bytes(&p->context, 0, sizeof(p->context));
@@ -220,6 +222,15 @@ void proc_exit(int code)
 
     p->xstate = code;
     p->state = ZOMBIE;
+
+     /*
+     * 子进程退出时唤醒父进程。
+     * 如果父进程正在 wait 中睡眠，它会被改回 RUNNABLE。
+     */
+    if (p->parent != 0)
+    {
+        wakeup(p->parent);
+    }
 
     swtch(&p->context, &scheduler_context);
 
@@ -450,7 +461,7 @@ int proc_wait(void)
                 {
                     uvmfree(np->pagetable, np->sz);
                 }
-                
+
                 np->pid = 0;
                 np->state = UNUSED;
                 np->pagetable = 0;
@@ -461,6 +472,7 @@ int proc_wait(void)
                 np->parent = 0;
                 np->xstate = 0;
                 np->name[0] = '\0';
+                np->chan = 0;
 
                 return pid;
             }
@@ -471,10 +483,54 @@ int proc_wait(void)
             return -1;
         }
 
-        /*
-         * 简化版 wait：
-         * 如果有子进程但还没 ZOMBIE，就主动让出 CPU。
-         */
-        yield();
+        proc_sleep(p);
+        
+    }
+}
+
+void proc_sleep(void *chan)
+{
+    struct proc *p = myproc();
+
+    if (p == 0)
+    {
+        printf("proc_sleep: no current proc\n");
+        return;
+    }
+
+    /*
+     * 当前进程睡在 chan 这个等待通道上。
+     * scheduler 不会再调度 SLEEPING 进程。
+     */
+    p->chan = chan;
+    p->state = SLEEPING;
+
+    printf("sleep: pid=%d chan=%p\n", p->pid, chan);
+
+    /*
+     * 切回 scheduler。
+     * 以后被 wakeup 改回 RUNNABLE 后，
+     * scheduler 再次调度它时，会从这里继续返回。
+     */
+    swtch(&p->context, &scheduler_context);
+
+    /*
+     * 被唤醒并重新运行后，清空 chan。
+     */
+    p->chan = 0;
+}
+
+void wakeup(void *chan)
+{
+    for (int i = 0; i < NPROC; i++)
+    {
+        struct proc *p = &proc[i];
+
+        if (p->state == SLEEPING && p->chan == chan)
+        {
+            printf("wakeup: pid=%d chan=%p\n", p->pid, chan);
+
+            p->state = RUNNABLE;
+        }
     }
 }
