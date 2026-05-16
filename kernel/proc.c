@@ -204,6 +204,36 @@ void yield(void)
     //printf("yield: pid=%d resumed\n", p->pid);
 }
 
+static void reparent(struct proc *p)
+{
+    if (initproc == 0)
+    {
+        return;
+    }
+
+    for (int i = 0; i < NPROC; i++)
+    {
+        struct proc *pp = &proc[i];
+
+        if (pp->parent == p)
+        {
+            printf("reparent: child pid=%d from parent pid=%d to init pid=%d\n",
+                   pp->pid, p->pid, initproc->pid);
+
+            pp->parent = initproc;
+
+            /*
+             * 如果这个子进程已经是 ZOMBIE，
+             * 那么 initproc 可能正在 wait，需要唤醒它。
+             */
+            if (pp->state == ZOMBIE)
+            {
+                wakeup(initproc);
+            }
+        }
+    }
+}
+
 void proc_exit(int code)
 {
     struct proc *p = myproc();
@@ -220,6 +250,13 @@ void proc_exit(int code)
 
     printf("user exit, pid=%d code=%d\n", p->pid, code);
 
+
+    /*
+     * 当前进程退出前，如果它还有子进程，
+     * 把这些子进程交给 initproc 接管。
+     */
+    reparent(p);
+    
     p->xstate = code;
     p->state = ZOMBIE;
 
@@ -484,7 +521,7 @@ int proc_wait(void)
         }
 
         proc_sleep(p);
-        
+
     }
 }
 
