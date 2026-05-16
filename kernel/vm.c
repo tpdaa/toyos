@@ -507,3 +507,97 @@ void vmprint_pte(uint64 va)
            (void *)PTE2PA(*pte),
            PTE_FLAGS(*pte));
 }
+
+void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
+{
+    if ((va % PGSIZE) != 0)
+    {
+        printf("uvmunmap: va not aligned %p\n", (void *)va);
+        return;
+    }
+
+    for (uint64 i = 0; i < npages; i++)
+    {
+        uint64 a = va + i * PGSIZE;
+        pte_t *pte = walk(pagetable, a, 0);
+
+        if (pte == 0)
+        {
+            continue;
+        }
+
+        if ((*pte & PTE_V) == 0)
+        {
+            continue;
+        }
+
+        /*
+         * 这里只应该释放用户页。
+         * 内核映射不能 kfree。
+         */
+        if ((*pte & PTE_U) == 0)
+        {
+            continue;
+        }
+
+        if (do_free)
+        {
+            uint64 pa = PTE2PA(*pte);
+            kfree((void *)pa);
+        }
+
+        *pte = 0;
+    }
+}
+
+static void freewalk(pagetable_t pagetable)
+{
+    for (int i = 0; i < 512; i++)
+    {
+        pte_t pte = pagetable[i];
+
+        if ((pte & PTE_V) == 0)
+        {
+            continue;
+        }
+
+        /*
+         * 如果这个 PTE 指向下一级页表，而不是叶子页，
+         * 就递归释放下一级页表。
+         */
+        if ((pte & (PTE_R | PTE_W | PTE_X)) == 0)
+        {
+            uint64 child = PTE2PA(pte);
+            freewalk((pagetable_t)child);
+            pagetable[i] = 0;
+        }
+        else
+        {
+            /*
+             * 叶子映射直接清掉。
+             *
+             * 用户页的物理内存已经由 uvmunmap() 释放；
+             * 内核映射不能释放物理页，只能清映射。
+             */
+            pagetable[i] = 0;
+        }
+    }
+
+    kfree((void *)pagetable);
+}
+
+void uvmfree(pagetable_t pagetable, uint64 sz)
+{
+    if (pagetable == 0)
+    {
+        return;
+    }
+
+    if (sz > 0)
+    {
+        uint64 npages = PGROUNDUP(sz) / PGSIZE;
+        uvmunmap(pagetable, USERBASE, npages, 1);
+    }
+
+    freewalk(pagetable);
+}

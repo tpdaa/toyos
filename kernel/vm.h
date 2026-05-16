@@ -53,4 +53,7 @@ void vmprint_pte(uint64 va);
 pagetable_t uvmcreate(void);
 int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz);
 
+void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free);
+void uvmfree(pagetable_t pagetable, uint64 sz);
+
 #endif

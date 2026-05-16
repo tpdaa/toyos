@@ -446,10 +446,11 @@ int proc_wait(void)
                 printf("wait: parent pid=%d collected child pid=%d code=%d\n",
                        p->pid, np->pid, np->xstate);
 
-                /*
-                 * 暂时只回收 proc 槽位。
-                 * 页表和用户物理页回收可以下一小步补。
-                 */
+                if (np->pagetable != 0)
+                {
+                    uvmfree(np->pagetable, np->sz);
+                }
+                
                 np->pid = 0;
                 np->state = UNUSED;
                 np->pagetable = 0;
