@@ -12,6 +12,7 @@ enum procstate
 {
     UNUSED,
     USED,
+    SLEEPING,
     RUNNABLE,
     RUNNING,
     ZOMBIE,
@@ -69,5 +70,8 @@ void scheduler(void);
 void yield(void);
 void proc_exit(int code);
 int proc_fork(void);
+
+int proc_wait(void);
+void wakeup(struct proc *p);
 
 #endif

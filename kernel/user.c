@@ -1,11 +1,11 @@
 #include "syscall.h"
 #include "user.h"
 
-static const char parent_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "parent: fork returned child pid\n";
-
 static const char child_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "child: fork returned 0\n";
+    "child: exit now\n";
+
+static const char parent_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "parent: wait done\n";
 
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
@@ -53,16 +53,16 @@ void user_main(void)
     if (pid < 0)
     {
         user_syscall(SYS_puts, (long)fork_fail_msg, 0, 0);
+        user_syscall(SYS_exit, 1, 0, 0);
     }
     else if (pid == 0)
     {
         user_syscall(SYS_puts, (long)child_msg, 0, 0);
-    }
-    else
-    {
-        user_syscall(SYS_puts, (long)parent_msg, 0, 0);
+        user_syscall(SYS_exit, 0, 0, 0);
     }
 
+    user_syscall(SYS_wait, 0, 0, 0);
+    user_syscall(SYS_puts, (long)parent_msg, 0, 0);
     user_syscall(SYS_exit, 0, 0, 0);
 
     for (;;) {}

@@ -8,6 +8,7 @@
 #define SYS_yield 3
 #define SYS_getpid 4
 #define SYS_fork 5
+#define SYS_wait 6
 
 void syscall(struct trapframe *tf);
 

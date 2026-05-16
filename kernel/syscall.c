@@ -27,6 +27,11 @@ static long sys_fork(void)
     return proc_fork();
 }
 
+static long sys_wait(void)
+{
+    return proc_wait();
+}
+
 void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
@@ -63,9 +68,14 @@ void syscall(struct trapframe *tf)
         case SYS_fork:
             tf->a0 = sys_fork();
             break;
+        case SYS_wait:
+            tf->a0 = sys_wait();
+            break;
         default:
             printf("unknown syscall: %ld\n",num);
             tf->a0 = (uint64)-1;
             break;
     }
 }
+
+

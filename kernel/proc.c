@@ -414,3 +414,66 @@ int proc_fork(void)
      */
     return np->pid;
 }
+
+int proc_wait(void)
+{
+    struct proc *p = myproc();
+
+    if (p == 0)
+    {
+        return -1;
+    }
+
+    for (;;)
+    {
+        int havekids = 0;
+
+        for (int i = 0; i < NPROC; i++)
+        {
+            struct proc *np = &proc[i];
+
+            if (np->parent != p)
+            {
+                continue;
+            }
+
+            havekids = 1;
+
+            if (np->state == ZOMBIE)
+            {
+                int pid = np->pid;
+
+                printf("wait: parent pid=%d collected child pid=%d code=%d\n",
+                       p->pid, np->pid, np->xstate);
+
+                /*
+                 * 暂时只回收 proc 槽位。
+                 * 页表和用户物理页回收可以下一小步补。
+                 */
+                np->pid = 0;
+                np->state = UNUSED;
+                np->pagetable = 0;
+                np->entry = 0;
+                np->stack_top = 0;
+                np->user_pc = 0;
+                np->sz = 0;
+                np->parent = 0;
+                np->xstate = 0;
+                np->name[0] = '\0';
+
+                return pid;
+            }
+        }
+
+        if (!havekids)
+        {
+            return -1;
+        }
+
+        /*
+         * 简化版 wait：
+         * 如果有子进程但还没 ZOMBIE，就主动让出 CPU。
+         */
+        yield();
+    }
+}
