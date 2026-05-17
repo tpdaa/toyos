@@ -256,7 +256,7 @@ void proc_exit(int code)
      * 把这些子进程交给 initproc 接管。
      */
     reparent(p);
-    
+
     p->xstate = code;
     p->state = ZOMBIE;
 
@@ -570,4 +570,51 @@ void wakeup(void *chan)
             p->state = RUNNABLE;
         }
     }
+}
+
+int proc_exec(void)
+{
+    struct proc *p = myproc();
+
+    if (p == 0)
+    {
+        return -1;
+    }
+
+    printf("exec: pid=%d reload user image\n", p->pid);
+
+    /*
+     * 释放当前进程旧的用户地址空间。
+     */
+    if (p->pagetable != 0)
+    {
+        uvmfree(p->pagetable, p->sz);
+        p->pagetable = 0;
+    }
+
+    /*
+     * 重新加载内置用户程序。
+     * uvminit 会重新创建 pagetable，
+     * 重新映射用户代码、数据、栈，
+     * 并设置 entry、stack_top、user_pc、sz。
+     */
+    uvminit(p);
+    
+     /*
+     * exec 后当前 CPU 必须切到新的用户页表。
+     * 因为旧页表已经被 uvmfree 释放了。
+     */
+    uvminithart(p->pagetable);
+    /*
+     * exec 成功后，当前进程应该从新程序入口开始运行。
+     */
+    p->user_pc = p->entry;
+    p->trapframe.sp = p->stack_top;
+
+    /*
+     * exec 系统调用本身不再返回到旧用户代码。
+     * 返回 0 只是让 syscall 层有一个正常返回值；
+     * 真正返回用户态的位置由 p->user_pc 决定。
+     */
+    return 0;
 }

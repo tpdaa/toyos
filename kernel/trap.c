@@ -36,7 +36,7 @@ void kernel_trap(struct trapframe *tf)
 
     uint64 scause = r_scause();
     uint64 sepc = r_sepc();
-    //uint64 stval = r_stval();
+    uint64 stval = r_stval();
 
     int from_user = (tf->sp != 0);
 
@@ -92,7 +92,18 @@ void kernel_trap(struct trapframe *tf)
         }
 
         syscall(tf);
-        w_sepc(sepc + 4);
+        /*
+        * 普通 syscall 后，p->user_pc 仍然是 sepc + 4。
+        * exec 成功后，p->user_pc 会被改成新程序入口。
+        */
+        if (from_user && p != 0)
+        {
+            w_sepc(p->user_pc);
+        }
+        else
+        {
+            w_sepc(sepc + 4);
+        }
 
         if (from_user && p != 0) 
         {
@@ -116,7 +127,8 @@ void kernel_trap(struct trapframe *tf)
         return;
     }
 
-    printf("unhandled trap,halt.\n");
+    printf("unhandled trap: scause=%lx sepc=%p stval=%lx from_user=%d\n",
+       scause, (void *)sepc, stval, from_user);
 
     for(;;)
     {

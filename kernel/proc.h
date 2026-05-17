@@ -76,4 +76,6 @@ int proc_wait(void);
 void proc_sleep(void *chan);
 void wakeup(void *chan);
 
+int proc_exec(void);
+
 #endif

@@ -32,6 +32,11 @@ static long sys_wait(void)
     return proc_wait();
 }
 
+static long sys_exec(void)
+{
+    return proc_exec();
+}
+
 void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
@@ -70,6 +75,9 @@ void syscall(struct trapframe *tf)
             break;
         case SYS_wait:
             tf->a0 = sys_wait();
+            break;
+        case SYS_exec:
+            tf->a0 = sys_exec();
             break;
         default:
             printf("unknown syscall: %ld\n",num);

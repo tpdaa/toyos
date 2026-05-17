@@ -1,23 +1,27 @@
 #include "syscall.h"
 #include "user.h"
 
-static const char child_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "child: fork grandchild and exit without wait\n";
+static const char init_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "init: fork child for exec test\n";
 
-static const char grandchild_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "grandchild: running after parent exit\n";
+static const char before_exec_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "child: before exec\n";
 
-static const char grandchild_exit_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "grandchild: exit now\n";
+static const char exec_child_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "child: after exec, restarted from user_main\n";
 
-static const char init_wait1_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "init: first wait done\n";
+static const char exec_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "exec failed or returned to old code\n";
 
-static const char init_wait2_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
-    "init: second wait done\n";
+static const char parent_done_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "parent: wait exec child done\n";
 
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
+
+static void user_delay(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
 
 unsigned char user_stack[USER_STACK_SIZE]
     __attribute__((used, aligned(16), section(".user.bss")));
@@ -56,56 +60,38 @@ void user_main(void) __attribute__((used, noinline, aligned(16), section(".user.
 
 void user_main(void)
 {
-    long pid = user_syscall(SYS_fork, 0, 0, 0);
+    long pid = user_syscall(SYS_getpid, 0, 0, 0);
 
-    if (pid < 0)
+    if (pid != 1)
+    {
+        user_syscall(SYS_puts, (long)exec_child_msg, 0, 0);
+        user_syscall(SYS_exit, 0, 0, 0);
+    }
+
+    user_syscall(SYS_puts, (long)init_msg, 0, 0);
+
+    long child = user_syscall(SYS_fork, 0, 0, 0);
+
+    if (child < 0)
     {
         user_syscall(SYS_puts, (long)fork_fail_msg, 0, 0);
         user_syscall(SYS_exit, 1, 0, 0);
     }
-    else if (pid == 0)
+
+    if (child == 0)
     {
-        /*
-         * child 进程再 fork 出 grandchild。
-         */
-        long gpid = user_syscall(SYS_fork, 0, 0, 0);
-
-        if (gpid < 0)
-        {
-            user_syscall(SYS_puts, (long)fork_fail_msg, 0, 0);
-            user_syscall(SYS_exit, 1, 0, 0);
-        }
-
-        if (gpid == 0)
-        {
-            /*
-             * grandchild 进程延迟一会儿再退出。
-             * 这样 child 会先退出，grandchild 会变成孤儿进程。
-             */
-            user_syscall(SYS_puts, (long)grandchild_msg, 0, 0);
-            user_delay();
-            user_syscall(SYS_puts, (long)grandchild_exit_msg, 0, 0);
-            user_syscall(SYS_exit, 0, 0, 0);
-        }
+        user_syscall(SYS_puts, (long)before_exec_msg, 0, 0);
+        user_syscall(SYS_exec, 0, 0, 0);
 
         /*
-         * child 不 wait grandchild，直接 exit。
+         * 如果 exec 成功，不应该继续执行到这里。
          */
-        user_syscall(SYS_puts, (long)child_msg, 0, 0);
-        user_syscall(SYS_exit, 0, 0, 0);
+        user_syscall(SYS_puts, (long)exec_fail_msg, 0, 0);
+        user_syscall(SYS_exit, 1, 0, 0);
     }
 
-     /*
-     * init 等两次：
-     * 第一次回收 child；
-     * 第二次回收被 reparent 到 init 的 grandchild。
-     */
     user_syscall(SYS_wait, 0, 0, 0);
-    user_syscall(SYS_puts, (long)init_wait1_msg, 0, 0);
-
-    user_syscall(SYS_wait, 0, 0, 0);
-    user_syscall(SYS_puts, (long)init_wait2_msg, 0, 0);
-
+    user_syscall(SYS_puts, (long)parent_done_msg, 0, 0);
     user_syscall(SYS_exit, 0, 0, 0);
 
     for (;;) {}
