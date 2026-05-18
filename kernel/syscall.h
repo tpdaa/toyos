@@ -10,7 +10,11 @@
 #define SYS_fork 5
 #define SYS_wait 6
 #define SYS_exec 7
+#define SYS_getprogid 8
 
+#define PROG_SHELL 0
+#define PROG_HELLO 1
+#define PROG_COUNT 2
 
 void syscall(struct trapframe *tf);
 

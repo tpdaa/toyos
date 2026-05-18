@@ -58,6 +58,8 @@ struct proc
     int xstate;
 
     void *chan;
+    int program_id;
+
     char name[16];
 };
 
@@ -76,6 +78,7 @@ int proc_wait(void);
 void proc_sleep(void *chan);
 void wakeup(void *chan);
 
-int proc_exec(void);
+int proc_exec(int program_id);
+int proc_get_program_id(void);
 
 #endif

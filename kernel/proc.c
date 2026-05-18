@@ -1,4 +1,5 @@
 #include "proc.h"
+#include "syscall.h"
 #include "printf.h"
 
 static struct proc proc[NPROC];
@@ -62,6 +63,7 @@ void procinit(void)
         proc[i].sz = 0;
         proc[i].parent = 0;
         proc[i].xstate = 0;
+        proc[i].program_id = 0;
         proc[i].chan = 0;
 
         memset_bytes(&proc[i].trapframe, 0, sizeof(proc[i].trapframe));
@@ -94,6 +96,7 @@ static struct proc *allocproc(void)
             p->sz = 0;
             p->parent = 0;
             p->xstate = 0;
+            p->program_id = 0;
             p->chan = 0;
 
             memset_bytes(&p->trapframe, 0, sizeof(p->trapframe));
@@ -155,6 +158,7 @@ struct proc *userinit(void)
         }
 
         p->state = RUNNABLE;
+        p->program_id = 0;
 
         printf("userinit: pid=%d name=%s state=RUNNABLE\n", p->pid, p->name);
     }
@@ -449,6 +453,7 @@ int proc_fork(void)
 
     np->parent = p;
     np->xstate = 0;
+    np->program_id = p->program_id;
 
     safestrcpy(np->name, "child", sizeof(np->name));
 
@@ -509,6 +514,7 @@ int proc_wait(void)
                 np->parent = 0;
                 np->xstate = 0;
                 np->name[0] = '\0';
+                np->program_id = 0;
                 np->chan = 0;
 
                 return pid;
@@ -572,7 +578,7 @@ void wakeup(void *chan)
     }
 }
 
-int proc_exec(void)
+int proc_exec(int program_id)
 {
     struct proc *p = myproc();
 
@@ -581,7 +587,14 @@ int proc_exec(void)
         return -1;
     }
 
-    printf("exec: pid=%d reload user image\n", p->pid);
+    if (program_id < PROG_SHELL || program_id > PROG_COUNT)
+    {
+        printf("exec: bad program_id=%d\n", program_id);
+        return -1;
+    }
+
+    printf("exec: pid=%d reload user image program=%d\n",
+           p->pid, program_id);
 
     /*
      * 释放当前进程旧的用户地址空间。
@@ -592,6 +605,8 @@ int proc_exec(void)
         p->pagetable = 0;
     }
 
+    p->program_id = program_id;
+
     /*
      * 重新加载内置用户程序。
      * uvminit 会重新创建 pagetable，
@@ -599,7 +614,7 @@ int proc_exec(void)
      * 并设置 entry、stack_top、user_pc、sz。
      */
     uvminit(p);
-    
+
      /*
      * exec 后当前 CPU 必须切到新的用户页表。
      * 因为旧页表已经被 uvmfree 释放了。
@@ -617,4 +632,16 @@ int proc_exec(void)
      * 真正返回用户态的位置由 p->user_pc 决定。
      */
     return 0;
+}
+
+int proc_get_program_id(void)
+{
+    struct proc *p = myproc();
+
+    if (p == 0)
+    {
+        return -1;
+    }
+
+    return p->program_id;
 }

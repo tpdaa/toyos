@@ -32,9 +32,14 @@ static long sys_wait(void)
     return proc_wait();
 }
 
-static long sys_exec(void)
+static long sys_exec(uint64 program_id)
 {
-    return proc_exec();
+    return proc_exec((int)program_id);
+}
+
+static long sys_getprogid(void)
+{
+    return proc_get_program_id();
 }
 
 void syscall(struct trapframe *tf)
@@ -77,7 +82,10 @@ void syscall(struct trapframe *tf)
             tf->a0 = sys_wait();
             break;
         case SYS_exec:
-            tf->a0 = sys_exec();
+            tf->a0 = sys_exec(tf->a0);
+            break;
+        case SYS_getprogid:
+            tf->a0 = sys_getprogid();
             break;
         default:
             printf("unknown syscall: %ld\n",num);
