@@ -6,6 +6,8 @@
 #include "vm.h"
 #include "proc.h"
 #include "timer.h"
+#include "block.h"
+#include "fs.h"
 
 void start(void)
 {
@@ -33,6 +35,12 @@ void start(void)
    // kvminithart();
     
     procinit();
+
+    block_init();
+    block_test();
+
+    fs_init();
+    fs_test();
 
     userinit();
 

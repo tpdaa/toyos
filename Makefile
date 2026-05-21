@@ -19,6 +19,8 @@ KERNEL_OBJS = \
 	kernel/proc.o \
 	kernel/swtch.o \
 	kernel/timer.o \
+	kernel/block.o \
+	 kernel/fs.o
 	
 all: kernel.elf
 kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
@@ -27,7 +29,7 @@ kernel.elf: $(KERNEL_OBJS) kernel/linker.ld
 kernel/entry.o: kernel/entry.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-kernel/start.o: kernel/start.c kernel/printf.h kernel/trap.h kernel/kalloc.h kernel/riscv.h kernel/user.h kernel/vm.h kernel/proc.h kernel/timer.h
+kernel/start.o: kernel/start.c kernel/printf.h kernel/trap.h kernel/kalloc.h kernel/riscv.h kernel/user.h kernel/vm.h kernel/proc.h kernel/timer.h kernel/block.h kernel/fs.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 kernel/sbi.o: kernel/sbi.c kernel/sbi.h
@@ -66,6 +68,12 @@ kernel/swtch.o: kernel/swtch.S
 kernel/timer.o: kernel/timer.c kernel/timer.h kernel/riscv.h kernel/sbi.h kernel/printf.h kernel/proc.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+kernel/block.o: kernel/block.c kernel/block.h kernel/printf.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+kernel/fs.o: kernel/fs.c kernel/fs.h kernel/block.h kernel/printf.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+	
 run : kernel.elf
 	qemu-system-riscv64 \
 	-machine virt \
