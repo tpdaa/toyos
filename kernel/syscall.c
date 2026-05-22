@@ -43,8 +43,9 @@ static long sys_getprogid(void)
     return proc_get_program_id();
 }
 
-static long sys_readfile(uint64 uva, uint64 max)
+static long sys_readfile(uint64 name_uva, uint64 buf_uva, uint64 max)
 {
+    char name[32];
     char kbuf[256];
     struct proc *p = myproc();
     int n;
@@ -65,14 +66,20 @@ static long sys_readfile(uint64 uva, uint64 max)
         max = sizeof(kbuf);
     }
 
-    n = fs_readi(ROOTINO, kbuf, (unsigned int)max);
-    if (n < 0) 
+    if (copystr(p->pagetable, name, name_uva, sizeof(name)) < 0) 
     {
-        printf("sys_readfile: fs_readi failed\n");
+        printf("sys_readfile: bad filename %p\n", (void *)name_uva);
         return -1;
     }
 
-    if (copyout(p->pagetable, uva, kbuf, (uint64)n) < 0) 
+    n = fs_readfile(name, kbuf, (unsigned int)max);
+    if (n < 0) 
+    {
+        printf("sys_readfile: fs_readfile failed\n");
+        return -1;
+    }
+
+    if (copyout(p->pagetable, buf_uva, kbuf, (uint64)n) < 0) 
     {
         printf("sys_readfile: copyout failed\n");
         return -1;
@@ -127,7 +134,7 @@ void syscall(struct trapframe *tf)
             tf->a0 = sys_getprogid();
             break;
         case SYS_readfile:
-            tf->a0 = sys_readfile(tf->a0, tf->a1);
+            tf->a0 = sys_readfile(tf->a0, tf->a1, tf->a2);
             break;
         default:
             printf("unknown syscall: %ld\n",num);

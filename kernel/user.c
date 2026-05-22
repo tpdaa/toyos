@@ -40,6 +40,9 @@ static const char cat_start_msg[] __attribute__((used, aligned(16), section(".us
 static const char cat_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "cat: readfile failed\n";
 
+static const char cat_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "hello.txt";
+
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
 
@@ -85,43 +88,61 @@ static void user_delay(void)
     }
 }
 
-static void shell_run_command(const char *cmd_msg)
+static long uputs(const char *s)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
-static void shell_run_command(const char *cmd_msg)
+static long uputs(const char *s)
 {
-    user_syscall(SYS_puts, (long)cmd_msg, 0, 0);
+    return user_syscall(SYS_puts, (long)s, 0, 0);
+}
 
-    long pid = user_syscall(SYS_fork, 0, 0, 0);
+static void uexit(int code)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
 
-    if (pid < 0)
-    {
-        user_syscall(SYS_puts, (long)fork_fail_msg, 0, 0);
-        return;
-    }
+static void uexit(int code)
+{
+    user_syscall(SYS_exit, code, 0, 0);
+    for (;;) {}
+}
 
-    if (pid == 0)
-    {
-        user_syscall(SYS_puts, (long)before_exec_msg, 0, 0);
+static long ufork(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
 
-        /*
-         * 子进程执行 exec。
-         * 当前 exec 是简化版，会重新加载同一个 user image。
-         */
-        user_syscall(SYS_exec, 0, 0, 0);
+static long ufork(void)
+{
+    return user_syscall(SYS_fork, 0, 0, 0);
+}
 
-        /*
-         * 如果 exec 成功，不应该执行到这里。
-         */
-        user_syscall(SYS_puts, (long)exec_fail_msg, 0, 0);
-        user_syscall(SYS_exit, 1, 0, 0);
-    }
+static long uwait(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
 
-    /*
-     * shell 等待 command 子进程结束。
-     */
-    user_syscall(SYS_wait, 0, 0, 0);
-    user_syscall(SYS_puts, (long)shell_wait_msg, 0, 0);
+static long uwait(void)
+{
+    return user_syscall(SYS_wait, 0, 0, 0);
+}
+
+static long uexec(int program_id)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long uexec(int program_id)
+{
+    return user_syscall(SYS_exec, program_id, 0, 0);
+}
+
+static long ugetprogid(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long ugetprogid(void)
+{
+    return user_syscall(SYS_getprogid, 0, 0, 0);
+}
+
+static long readfile(const char *name, char *buf, unsigned long max)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long readfile(const char *name, char *buf, unsigned long max)
+{
+    return user_syscall(SYS_readfile, (long)name, (long)buf, (long)max);
 }
 
 static void hello_main(void)
@@ -129,8 +150,8 @@ static void hello_main(void)
 
 static void hello_main(void)
 {
-    user_syscall(SYS_puts, (long)hello_msg, 0, 0);
-    user_syscall(SYS_exit, 0, 0, 0);
+    uputs(hello_msg);
+    uexit(0);
 
     for (;;) {}
 }
@@ -140,10 +161,10 @@ static void count_main(void)
 
 static void count_main(void)
 {
-    user_syscall(SYS_puts, (long)count1_msg, 0, 0);
-    user_syscall(SYS_puts, (long)count2_msg, 0, 0);
-    user_syscall(SYS_puts, (long)count3_msg, 0, 0);
-    user_syscall(SYS_exit, 0, 0, 0);
+    uputs(count1_msg);
+    uputs(count2_msg);
+    uputs(count3_msg);
+    uexit(0);
 
     for (;;) {}
 }
@@ -156,20 +177,20 @@ static void cat_main(void)
     char buf[128];
     long n;
 
-    user_syscall(SYS_puts, (long)cat_start_msg, 0, 0);
+    uputs(cat_start_msg);
 
-    n = user_syscall(SYS_readfile, (long)buf, sizeof(buf) - 1, 0);
+    n = readfile(cat_filename, buf, sizeof(buf) - 1);
 
     if (n < 0) 
     {
-        user_syscall(SYS_puts, (long)cat_fail_msg, 0, 0);
-        user_syscall(SYS_exit, 1, 0, 0);
+        uputs(cat_fail_msg);
+        uexit(1);
     }
 
     buf[n] = '\0';
 
-    user_syscall(SYS_puts, (long)buf, 0, 0);
-    user_syscall(SYS_exit, 0, 0, 0);
+    uputs(buf);
+    uexit(0);
 
     for (;;) {}
 }
@@ -179,30 +200,30 @@ static void shell_run(const char *msg, int program_id)
 
 static void shell_run(const char *msg, int program_id)
 {
-    user_syscall(SYS_puts, (long)msg, 0, 0);
+    uputs(msg);
 
-    long pid = user_syscall(SYS_fork, 0, 0, 0);
+    long pid = ufork();
 
     if (pid < 0)
     {
-        user_syscall(SYS_puts, (long)fork_fail_msg, 0, 0);
+        uputs(fork_fail_msg);
         return;
     }
 
     if (pid == 0)
     {
-        user_syscall(SYS_puts, (long)before_exec_msg, 0, 0);
-        user_syscall(SYS_exec, program_id, 0, 0);
+        uputs(before_exec_msg);
+        uexec(program_id);
 
         /*
          * exec 成功后不应该返回旧代码。
          */
-        user_syscall(SYS_puts, (long)exec_fail_msg, 0, 0);
-        user_syscall(SYS_exit, 1, 0, 0);
+        uputs(exec_fail_msg);
+        uexit(1);
     }
 
-    user_syscall(SYS_wait, 0, 0, 0);
-    user_syscall(SYS_puts, (long)shell_wait_msg, 0, 0);
+    uwait();
+    uputs(shell_wait_msg);
 }
 
 static void shell_main(void)
@@ -210,14 +231,14 @@ static void shell_main(void)
 
 static void shell_main(void)
 {
-    user_syscall(SYS_puts, (long)shell_start_msg, 0, 0);
+    uputs(shell_start_msg);
 
     shell_run(shell_run_hello_msg, PROG_HELLO);
     shell_run(shell_run_count_msg, PROG_COUNT);
     shell_run(shell_run_cat_msg, PROG_CAT);
-    
-    user_syscall(SYS_puts, (long)shell_done_msg, 0, 0);
-    user_syscall(SYS_exit, 0, 0, 0);
+
+    uputs(shell_done_msg);
+    uexit(0);
 
     for (;;) {}
 }
@@ -227,7 +248,7 @@ void user_main(void)
 
 void user_main(void)
 {
-    long prog = user_syscall(SYS_getprogid, 0, 0, 0);
+    long prog = ugetprogid();
 
     if (prog == PROG_SHELL)
     {
@@ -247,8 +268,8 @@ void user_main(void)
     }
     else
     {
-        user_syscall(SYS_puts, (long)unknown_prog_msg, 0, 0);
-        user_syscall(SYS_exit, 1, 0, 0);
+        uputs(unknown_prog_msg);
+        uexit(1);
     }
 
     for (;;) {}

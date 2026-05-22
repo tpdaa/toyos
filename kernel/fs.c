@@ -23,18 +23,44 @@ static void memcopy_fs(void *dst, const void *src, unsigned int n)
     }
 }
 
+static unsigned int strlen_fs(const char *s)
+{
+    unsigned int n = 0;
+
+    while (s[n] != '\0') 
+    {
+        n++;
+    }
+
+    return n;
+}
+
+static int streq_fs(const char *a, const char *b)
+{
+    unsigned int i = 0;
+
+    while (a[i] != '\0' && b[i] != '\0') 
+    {
+        if (a[i] != b[i]) 
+        {
+            return 0;
+        }
+        i++;
+    }
+
+    return a[i] == '\0' && b[i] == '\0';
+}
+
 void fs_init(void)
 {
     unsigned char buf[BSIZE];
     struct superblock sb;
     struct dinode *dip;
+    struct dirent *de;
     const char *msg = "hello from toyfs\n";
-    unsigned int len = 0;
-
-    while (msg[len] != '\0') 
-    {
-        len++;
-    }
+    const char *name = "hello.txt";
+    unsigned int len = strlen_fs(msg);
+    unsigned int namelen = strlen_fs(name);
 
     memzero_fs(buf, BSIZE);
     memzero_fs(&sb, sizeof(sb));
@@ -57,9 +83,13 @@ void fs_init(void)
     memzero_fs(buf, BSIZE);
 
     dip = (struct dinode *)buf;
-    dip[ROOTINO].type = T_FILE;
-    dip[ROOTINO].size = len;
-    dip[ROOTINO].data_block = DATASTART;
+    dip[ROOTINO].type = T_DIR;
+    dip[ROOTINO].size = sizeof(struct dirent);
+    dip[ROOTINO].data_block = ROOTDIR_BLOCK;
+
+    dip[HELLOINO].type = T_FILE;
+    dip[HELLOINO].size = len;
+    dip[HELLOINO].data_block = HELLO_BLOCK;
 
     if (block_write(IBLOCK, buf) < 0) 
     {
@@ -67,12 +97,36 @@ void fs_init(void)
         return;
     }
 
+    /*
+     * root directory block.
+     */
+    memzero_fs(buf, BSIZE);
+    de = (struct dirent *)buf;
+    de[0].inum = HELLOINO;
+
+    if (namelen >= sizeof(de[0].name)) 
+    {
+        namelen = sizeof(de[0].name) - 1;
+    }
+
+    memcopy_fs(de[0].name, name, namelen);
+    de[0].name[namelen] = '\0';
+
+    if (block_write(ROOTDIR_BLOCK, buf) < 0) 
+    {
+        printf("fs init failed: write root directory failed\n");
+        return;
+    }
+
+    /*
+     * file data block.
+     */
     memzero_fs(buf, BSIZE);
     memcopy_fs(buf, msg, len);
 
-    if (block_write(DATASTART, buf) < 0) 
+    if (block_write(HELLO_BLOCK, buf) < 0) 
     {
-        printf("fs init failed: write data block failed\n");
+        printf("fs init failed: write file data failed\n");
         return;
     }
 
@@ -145,6 +199,72 @@ int fs_readi(unsigned int inum, char *dst, unsigned int max)
     return n;
 }
 
+int fs_lookup(const char *name)
+{
+    unsigned char buf[BSIZE];
+    struct dinode *dip;
+    struct dinode rootino;
+    struct dirent *de;
+    unsigned int nentry;
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_lookup: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+    rootino = dip[ROOTINO];
+
+    if (rootino.type != T_DIR) 
+    {
+        printf("fs_lookup: root is not directory\n");
+        return -1;
+    }
+
+    if (rootino.size > BSIZE) 
+    {
+        printf("fs_lookup: root directory too large\n");
+        return -1;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(rootino.data_block, buf) < 0) 
+    {
+        printf("fs_lookup: read root dir failed\n");
+        return -1;
+    }
+
+    de = (struct dirent *)buf;
+    nentry = rootino.size / sizeof(struct dirent);
+
+    for (unsigned int i = 0; i < nentry; i++) 
+    {
+        if (de[i].inum != 0 && streq_fs(de[i].name, name)) 
+        {
+            return de[i].inum;
+        }
+    }
+
+    return -1;
+}
+
+int fs_readfile(const char *name, char *dst, unsigned int max)
+{
+    int inum = fs_lookup(name);
+
+    if (inum < 0) 
+    {
+        printf("fs_readfile: file not found: %s\n", name);
+        return -1;
+    }
+
+    return fs_readi((unsigned int)inum, dst, max);
+}
+
 void fs_test(void)
 {
     unsigned char buf[BSIZE];
@@ -201,13 +321,13 @@ void fs_test(void)
     dip = (struct dinode *)buf;
     rootino = dip[ROOTINO];
 
-    if (rootino.type != T_FILE) 
+    if (rootino.type != T_DIR)
     {
         printf("fs test failed: bad root inode type=%d\n", rootino.type);
         return;
     }
 
-    if (rootino.data_block != DATASTART) 
+    if (rootino.data_block != ROOTDIR_BLOCK) 
     {
         printf("fs test failed: bad root data_block=%d\n", rootino.data_block);
         return;
@@ -220,7 +340,7 @@ void fs_test(void)
     }
 
     int n;
-    n = fs_readi(ROOTINO, (char *)filebuf, BSIZE - 1);
+    n = fs_readfile("hello.txt", (char *)filebuf, BSIZE - 1);
     if (n < 0) 
     {
         printf("fs test failed: fs_readi failed\n");
@@ -228,8 +348,8 @@ void fs_test(void)
     }
     filebuf[n] = '\0';
 
-    printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d root_size=%d read_n=%d\n",
-           sb.size, sb.nblocks, sb.ninodes, rootino.data_block, rootino.size, n);
+    printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d read_n=%d\n",
+       sb.size, sb.nblocks, sb.ninodes, rootino.data_block, n);
 
     printf("fs file content: %s", filebuf);
 

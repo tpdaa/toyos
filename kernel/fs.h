@@ -4,11 +4,17 @@
 #define FSMAGIC 0x10203040
 
 #define ROOTINO 1
-#define T_FILE 1
+#define HELLOINO 2
+
+#define T_DIR 1
+#define T_FILE 2
 
 #define SBLOCK 1 //superblock 放在 block 1
 #define IBLOCK 2 //inode table 放在 block 2
 #define DATASTART 3 //数据区开始block
+
+#define ROOTDIR_BLOCK 3
+#define HELLO_BLOCK 4
 
 #define NINODES 16
 
@@ -27,8 +33,15 @@ struct dinode {
     unsigned int data_block; //文件内容所在的磁盘块号
 };
 
+struct dirent {
+    unsigned int inum;
+    char name[28];
+};
+
 void fs_init(void);
 void fs_test(void);
 int fs_readi(unsigned int inum, char *dst, unsigned int max);
+int fs_lookup(const char *name);
+int fs_readfile(const char *name, char *dst, unsigned int max);
 
 #endif
