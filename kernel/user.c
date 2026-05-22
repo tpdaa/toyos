@@ -10,6 +10,9 @@ static const char shell_run_hello_msg[] __attribute__((used, aligned(16), sectio
 static const char shell_run_count_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run count\n";
 
+static const char shell_run_cat_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run cat\n";
+
 static const char shell_wait_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: command finished\n";
 
@@ -30,6 +33,12 @@ static const char count2_msg[] __attribute__((used, aligned(16), section(".user.
 
 static const char count3_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "count: 3\n";
+
+static const char cat_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "cat: reading toyfs\n";
+
+static const char cat_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "cat: readfile failed\n";
 
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
@@ -139,6 +148,32 @@ static void count_main(void)
     for (;;) {}
 }
 
+static void cat_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void cat_main(void)
+{
+    char buf[128];
+    long n;
+
+    user_syscall(SYS_puts, (long)cat_start_msg, 0, 0);
+
+    n = user_syscall(SYS_readfile, (long)buf, sizeof(buf) - 1, 0);
+
+    if (n < 0) 
+    {
+        user_syscall(SYS_puts, (long)cat_fail_msg, 0, 0);
+        user_syscall(SYS_exit, 1, 0, 0);
+    }
+
+    buf[n] = '\0';
+
+    user_syscall(SYS_puts, (long)buf, 0, 0);
+    user_syscall(SYS_exit, 0, 0, 0);
+
+    for (;;) {}
+}
+
 static void shell_run(const char *msg, int program_id)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -179,7 +214,8 @@ static void shell_main(void)
 
     shell_run(shell_run_hello_msg, PROG_HELLO);
     shell_run(shell_run_count_msg, PROG_COUNT);
-
+    shell_run(shell_run_cat_msg, PROG_CAT);
+    
     user_syscall(SYS_puts, (long)shell_done_msg, 0, 0);
     user_syscall(SYS_exit, 0, 0, 0);
 
@@ -204,6 +240,10 @@ void user_main(void)
     else if (prog == PROG_COUNT)
     {
         count_main();
+    }
+    else if (prog == PROG_CAT)
+    {
+        cat_main();
     }
     else
     {

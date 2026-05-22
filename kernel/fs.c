@@ -79,6 +79,72 @@ void fs_init(void)
     printf("fs init done. magic=0x%x\n", sb.magic);
 }
 
+int fs_readi(unsigned int inum, char *dst, unsigned int max)
+{
+    unsigned char buf[BSIZE];
+    struct dinode *dip;
+    struct dinode ino;
+    unsigned int n;
+
+    if (inum >= NINODES) 
+    {
+        printf("fs_readi: bad inum %d\n", inum);
+        return -1;
+    }
+
+    if (max == 0) 
+    {
+        return 0;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_readi: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+    ino = dip[inum];
+
+    if (ino.type != T_FILE) 
+    {
+        printf("fs_readi: inode %d is not file\n", inum);
+        return -1;
+    }
+
+    if (ino.size == 0) 
+    {
+        return 0;
+    }
+
+    if (ino.size > BSIZE) 
+    {
+        printf("fs_readi: file too large size=%d\n", ino.size);
+        return -1;
+    }
+
+    n = ino.size;
+
+    if (n > max) 
+    {
+        n = max;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(ino.data_block, buf) < 0) 
+    {
+        printf("fs_readi: read data block failed\n");
+        return -1;
+    }
+
+    memcopy_fs(dst, buf, n);
+
+    return n;
+}
+
 void fs_test(void)
 {
     unsigned char buf[BSIZE];
@@ -153,17 +219,18 @@ void fs_test(void)
         return;
     }
 
-    if (block_read(rootino.data_block, filebuf) < 0) 
+    int n;
+    n = fs_readi(ROOTINO, (char *)filebuf, BSIZE - 1);
+    if (n < 0) 
     {
-        printf("fs test failed: read file data failed\n");
+        printf("fs test failed: fs_readi failed\n");
         return;
     }
+    filebuf[n] = '\0';
 
-    filebuf[rootino.size] = '\0';
-
-    printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d root_size=%d\n",
-           sb.size, sb.nblocks, sb.ninodes, rootino.data_block, rootino.size);
+    printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d root_size=%d read_n=%d\n",
+           sb.size, sb.nblocks, sb.ninodes, rootino.data_block, rootino.size, n);
 
     printf("fs file content: %s", filebuf);
-    
+
 }

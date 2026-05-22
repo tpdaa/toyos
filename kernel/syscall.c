@@ -2,6 +2,7 @@
 #include "printf.h"
 #include "vm.h"
 #include "proc.h"
+#include "fs.h"
 
 static long sys_puts(uint64 uva)
 {
@@ -40,6 +41,44 @@ static long sys_exec(uint64 program_id)
 static long sys_getprogid(void)
 {
     return proc_get_program_id();
+}
+
+static long sys_readfile(uint64 uva, uint64 max)
+{
+    char kbuf[256];
+    struct proc *p = myproc();
+    int n;
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_readfile: no current process\n");
+        return -1;
+    }
+
+    if (max == 0) 
+    {
+        return 0;
+    }
+
+    if (max > sizeof(kbuf)) 
+    {
+        max = sizeof(kbuf);
+    }
+
+    n = fs_readi(ROOTINO, kbuf, (unsigned int)max);
+    if (n < 0) 
+    {
+        printf("sys_readfile: fs_readi failed\n");
+        return -1;
+    }
+
+    if (copyout(p->pagetable, uva, kbuf, (uint64)n) < 0) 
+    {
+        printf("sys_readfile: copyout failed\n");
+        return -1;
+    }
+
+    return n;
 }
 
 void syscall(struct trapframe *tf)
@@ -86,6 +125,9 @@ void syscall(struct trapframe *tf)
             break;
         case SYS_getprogid:
             tf->a0 = sys_getprogid();
+            break;
+        case SYS_readfile:
+            tf->a0 = sys_readfile(tf->a0, tf->a1);
             break;
         default:
             printf("unknown syscall: %ld\n",num);
