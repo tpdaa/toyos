@@ -88,6 +88,44 @@ static long sys_readfile(uint64 name_uva, uint64 buf_uva, uint64 max)
     return n;
 }
 
+static long sys_listfiles(uint64 buf_uva, uint64 max)
+{
+    char kbuf[256];
+    struct proc *p = myproc();
+    int n;
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_listfiles: no current process\n");
+        return -1;
+    }
+
+    if (max == 0) 
+    {
+        return 0;
+    }
+
+    if (max > sizeof(kbuf)) 
+    {
+        max = sizeof(kbuf);
+    }
+
+    n = fs_list(kbuf, (unsigned int)max);
+    if (n < 0) 
+    {
+        printf("sys_listfiles: fs_list failed\n");
+        return -1;
+    }
+
+    if (copyout(p->pagetable, buf_uva, kbuf, (uint64)n) < 0) 
+    {
+        printf("sys_listfiles: copyout failed\n");
+        return -1;
+    }
+
+    return n;
+}
+
 void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
@@ -135,6 +173,9 @@ void syscall(struct trapframe *tf)
             break;
         case SYS_readfile:
             tf->a0 = sys_readfile(tf->a0, tf->a1, tf->a2);
+            break;
+        case SYS_listfiles:
+            tf->a0 = sys_listfiles(tf->a0, tf->a1);
             break;
         default:
             printf("unknown syscall: %ld\n",num);

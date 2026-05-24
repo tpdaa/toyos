@@ -12,11 +12,13 @@
 #define SYS_exec 7
 #define SYS_getprogid 8
 #define SYS_readfile 9
+#define SYS_listfiles 10
 
 #define PROG_SHELL 0
 #define PROG_HELLO 1
 #define PROG_COUNT 2
 #define PROG_CAT 3
+#define PROG_LS 4
 
 void syscall(struct trapframe *tf);
 

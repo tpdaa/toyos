@@ -51,6 +51,25 @@ static int streq_fs(const char *a, const char *b)
     return a[i] == '\0' && b[i] == '\0';
 }
 
+static unsigned int appendstr_fs(char *dst, unsigned int off, unsigned int max, const char *s)
+{
+    unsigned int i = 0;
+
+    while (s[i] != '\0') 
+    {
+        if (off + 1 >= max) 
+        {
+            break;
+        }
+
+        dst[off] = s[i];
+        off++;
+        i++;
+    }
+
+    return off;
+}
+
 void fs_init(void)
 {
     unsigned char buf[BSIZE];
@@ -300,6 +319,78 @@ int fs_readfile(const char *name, char *dst, unsigned int max)
     }
 
     return fs_readi((unsigned int)inum, dst, max);
+}
+
+int fs_list(char *dst, unsigned int max)
+{
+    unsigned char buf[BSIZE];
+    struct dinode *dip;
+    struct dinode rootino;
+    struct dirent *de;
+    unsigned int nentry;
+    unsigned int off = 0;
+
+    if (max == 0) 
+    {
+        return 0;
+    }
+
+    memzero_fs(dst, max);
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_list: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+    rootino = dip[ROOTINO];
+
+    if (rootino.type != T_DIR) 
+    {
+        printf("fs_list: root is not directory\n");
+        return -1;
+    }
+
+    if (rootino.size > BSIZE) 
+    {
+        printf("fs_list: root directory too large\n");
+        return -1;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(rootino.data_block, buf) < 0) 
+    {
+        printf("fs_list: read root dir failed\n");
+        return -1;
+    }
+
+    de = (struct dirent *)buf;
+    nentry = rootino.size / sizeof(struct dirent);
+
+    for (unsigned int i = 0; i < nentry; i++) 
+    {
+        if (de[i].inum == 0) 
+        {
+            continue;
+        }
+
+        off = appendstr_fs(dst, off, max, de[i].name);
+        off = appendstr_fs(dst, off, max, "\n");
+    }
+
+    if (off < max) 
+    {
+        dst[off] = '\0';
+    } 
+    else 
+    {
+        dst[max - 1] = '\0';
+    }
+
+    return off;
 }
 
 void fs_test(void)

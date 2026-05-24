@@ -45,5 +45,6 @@ void fs_test(void);
 int fs_readi(unsigned int inum, char *dst, unsigned int max);
 int fs_lookup(const char *name);
 int fs_readfile(const char *name, char *dst, unsigned int max);
+int fs_list(char *dst, unsigned int max);
 
 #endif

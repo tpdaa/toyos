@@ -13,6 +13,9 @@ static const char shell_run_count_msg[] __attribute__((used, aligned(16), sectio
 static const char shell_run_cat_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run cat\n";
 
+static const char shell_run_ls_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run ls\n";
+
 static const char shell_wait_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: command finished\n";
 
@@ -40,12 +43,26 @@ static const char cat_start_msg[] __attribute__((used, aligned(16), section(".us
 static const char cat_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "cat: readfile failed\n";
 
+static const char cat_missing_bad_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "cat: unexpected success reading missing.txt\n";
+
+static const char cat_missing_ok_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "cat: missing.txt not found, good\n";
+
 static const char cat_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "hello.txt";
 
 static const char cat_readme_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "readme.txt";
 
+static const char cat_missing_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "missing.txt";
+
+static const char ls_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "ls: root directory\n";
+
+static const char ls_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "ls: listfiles failed\n";
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
 
@@ -148,6 +165,14 @@ static long readfile(const char *name, char *buf, unsigned long max)
     return user_syscall(SYS_readfile, (long)name, (long)buf, (long)max);
 }
 
+static long listfiles(char *buf, unsigned long max)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long listfiles(char *buf, unsigned long max)
+{
+    return user_syscall(SYS_listfiles, (long)buf, (long)max, 0);
+}
+
 static void hello_main(void)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -203,6 +228,42 @@ static void cat_main(void)
     buf[n] = '\0';
     uputs(buf);
 
+        n = readfile(cat_missing_filename, buf, sizeof(buf) - 1);
+    if (n < 0) 
+    {
+        uputs(cat_missing_ok_msg);
+    } else 
+    {
+        buf[n] = '\0';
+        uputs(cat_missing_bad_msg);
+        uputs(buf);
+        uexit(1);
+    }
+
+    uexit(0);
+
+    for (;;) {}
+}
+
+static void ls_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void ls_main(void)
+{
+    char buf[128];
+    long n;
+
+    uputs(ls_start_msg);
+
+    n = listfiles(buf, sizeof(buf) - 1);
+    if (n < 0) {
+        uputs(ls_fail_msg);
+        uexit(1);
+    }
+
+    buf[n] = '\0';
+    uputs(buf);
+
     uexit(0);
 
     for (;;) {}
@@ -249,6 +310,7 @@ static void shell_main(void)
     shell_run(shell_run_hello_msg, PROG_HELLO);
     shell_run(shell_run_count_msg, PROG_COUNT);
     shell_run(shell_run_cat_msg, PROG_CAT);
+    shell_run(shell_run_ls_msg, PROG_LS);
 
     uputs(shell_done_msg);
     uexit(0);
@@ -278,6 +340,10 @@ void user_main(void)
     else if (prog == PROG_CAT)
     {
         cat_main();
+    }
+    else if (prog == PROG_LS)
+    {
+        ls_main();
     }
     else
     {

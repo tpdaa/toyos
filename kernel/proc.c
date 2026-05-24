@@ -587,7 +587,7 @@ int proc_exec(int program_id)
         return -1;
     }
 
-    if (program_id < PROG_SHELL || program_id > PROG_CAT)
+    if (program_id < PROG_SHELL || program_id > PROG_LS)
     {
         printf("exec: bad program_id=%d\n", program_id);
         return -1;
