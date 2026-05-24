@@ -57,10 +57,15 @@ void fs_init(void)
     struct superblock sb;
     struct dinode *dip;
     struct dirent *de;
-    const char *msg = "hello from toyfs\n";
-    const char *name = "hello.txt";
-    unsigned int len = strlen_fs(msg);
-    unsigned int namelen = strlen_fs(name);
+    const char *hello_msg = "hello from toyfs\n";
+    const char *readme_msg = "this is a tiny file system\n";
+    const char *hello_name = "hello.txt";
+    const char *readme_name = "readme.txt";
+
+    unsigned int hello_len = strlen_fs(hello_msg);
+    unsigned int readme_len = strlen_fs(readme_msg);
+    unsigned int hello_namelen = strlen_fs(hello_name);
+    unsigned int readme_namelen = strlen_fs(readme_name);
 
     memzero_fs(buf, BSIZE);
     memzero_fs(&sb, sizeof(sb));
@@ -84,12 +89,16 @@ void fs_init(void)
 
     dip = (struct dinode *)buf;
     dip[ROOTINO].type = T_DIR;
-    dip[ROOTINO].size = sizeof(struct dirent);
+    dip[ROOTINO].size = 2 * sizeof(struct dirent);
     dip[ROOTINO].data_block = ROOTDIR_BLOCK;
 
     dip[HELLOINO].type = T_FILE;
-    dip[HELLOINO].size = len;
+    dip[HELLOINO].size = hello_len;
     dip[HELLOINO].data_block = HELLO_BLOCK;
+
+    dip[READMEINO].type = T_FILE;
+    dip[READMEINO].size = readme_len;
+    dip[READMEINO].data_block = README_BLOCK;
 
     if (block_write(IBLOCK, buf) < 0) 
     {
@@ -102,15 +111,31 @@ void fs_init(void)
      */
     memzero_fs(buf, BSIZE);
     de = (struct dirent *)buf;
+
+    /*
+    * directory entry 0: hello.txt
+    */
     de[0].inum = HELLOINO;
 
-    if (namelen >= sizeof(de[0].name)) 
-    {
-        namelen = sizeof(de[0].name) - 1;
+    if (hello_namelen >= sizeof(de[0].name)) {
+        hello_namelen = sizeof(de[0].name) - 1;
     }
 
-    memcopy_fs(de[0].name, name, namelen);
-    de[0].name[namelen] = '\0';
+    memcopy_fs(de[0].name, hello_name, hello_namelen);
+    de[0].name[hello_namelen] = '\0';
+
+    /*
+    * directory entry 1: readme.txt
+    */
+    de[1].inum = READMEINO;
+
+    if (readme_namelen >= sizeof(de[1].name)) 
+    {
+        readme_namelen = sizeof(de[1].name) - 1;
+    }
+
+    memcopy_fs(de[1].name, readme_name, readme_namelen);
+    de[1].name[readme_namelen] = '\0';
 
     if (block_write(ROOTDIR_BLOCK, buf) < 0) 
     {
@@ -119,14 +144,26 @@ void fs_init(void)
     }
 
     /*
-     * file data block.
-     */
+    * hello.txt data block.
+    */
     memzero_fs(buf, BSIZE);
-    memcopy_fs(buf, msg, len);
+    memcopy_fs(buf, hello_msg, hello_len);
 
     if (block_write(HELLO_BLOCK, buf) < 0) 
     {
-        printf("fs init failed: write file data failed\n");
+        printf("fs init failed: write hello data failed\n");
+        return;
+    }
+
+    /*
+    * readme.txt data block.
+    */
+    memzero_fs(buf, BSIZE);
+    memcopy_fs(buf, readme_msg, readme_len);
+
+    if (block_write(README_BLOCK, buf) < 0) 
+    {
+        printf("fs init failed: write readme data failed\n");
         return;
     }
 
@@ -269,12 +306,14 @@ void fs_test(void)
 {
     unsigned char buf[BSIZE];
     unsigned char filebuf[BSIZE];
+    unsigned char readmebuf[BSIZE];
     struct superblock sb;
     struct dinode *dip;
     struct dinode rootino;
 
     memzero_fs(buf, BSIZE);
     memzero_fs(filebuf, BSIZE);
+    memzero_fs(readmebuf, BSIZE);
     memzero_fs(&sb, sizeof(sb));
     memzero_fs(&rootino, sizeof(rootino));
 
@@ -348,9 +387,19 @@ void fs_test(void)
     }
     filebuf[n] = '\0';
 
+    int n2;
+    n2 = fs_readfile("readme.txt", (char *)readmebuf, BSIZE - 1);
+    if (n2 < 0) 
+    {
+        printf("fs test failed: read readme.txt failed\n");
+        return;
+    }
+    readmebuf[n2] = '\0';
+
     printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d read_n=%d\n",
        sb.size, sb.nblocks, sb.ninodes, rootino.data_block, n);
 
     printf("fs file content: %s", filebuf);
+    printf("fs readme content: %s", readmebuf);
 
 }

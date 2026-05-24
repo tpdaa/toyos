@@ -5,6 +5,7 @@
 
 #define ROOTINO 1
 #define HELLOINO 2
+#define READMEINO 3
 
 #define T_DIR 1
 #define T_FILE 2
@@ -13,8 +14,9 @@
 #define IBLOCK 2 //inode table 放在 block 2
 #define DATASTART 3 //数据区开始block
 
-#define ROOTDIR_BLOCK 3
-#define HELLO_BLOCK 4
+#define ROOTDIR_BLOCK 3 // 根目录内容所在 block
+#define HELLO_BLOCK 4  // hello.txt 文件内容所在 block
+#define README_BLOCK 5 // readme.txt 文件内容所在 block
 
 #define NINODES 16
 

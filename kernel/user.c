@@ -43,6 +43,9 @@ static const char cat_fail_msg[] __attribute__((used, aligned(16), section(".use
 static const char cat_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "hello.txt";
 
+static const char cat_readme_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "readme.txt";
+
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
 
@@ -188,8 +191,18 @@ static void cat_main(void)
     }
 
     buf[n] = '\0';
-
     uputs(buf);
+
+    n = readfile(cat_readme_filename, buf, sizeof(buf) - 1);
+    if (n < 0) 
+    {
+        uputs(cat_fail_msg);
+        uexit(1);
+    }
+
+    buf[n] = '\0';
+    uputs(buf);
+
     uexit(0);
 
     for (;;) {}
