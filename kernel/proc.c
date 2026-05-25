@@ -137,6 +137,49 @@ static struct proc *allocproc(void)
     return 0;
 }
 
+// 失败路径回收：只用于尚未正式变成可运行子进程的半成品 proc
+static void freeproc_partial(struct proc *p)
+{
+    if (p == 0)
+    {
+        return;
+    }
+
+    if (p->pagetable != 0)
+    {
+        // 释放用户页 + 页表树
+        uvmfree(p->pagetable, p->sz);
+        p->pagetable = 0;
+    }
+
+    p->pid = 0;
+    p->state = UNUSED;
+
+    p->entry = 0;
+    p->stack_top = 0;
+    p->user_pc = 0;
+    p->sz = 0;
+
+    p->parent = 0;
+    p->xstate = 0;
+    p->program_id = 0;
+    p->chan = 0;
+
+    for (int i = 0; i < NOFILE; i++)
+    {
+        p->files[i].used = 0;
+        p->files[i].inum = 0;
+        p->files[i].off = 0;
+    }
+
+    
+    memset_bytes(&p->trapframe, 0, sizeof(p->trapframe));
+    memset_bytes(&p->context, 0, sizeof(p->context));
+    memset_bytes(p->kstack, 0, KSTACK_SIZE);
+
+    p->name[0] = '\0';
+}
+
 struct proc *userinit(void)
 {
     struct proc *first = 0;
@@ -432,15 +475,16 @@ int proc_fork(void)
     if (np->pagetable == 0)
     {
         printf("fork: uvmcreate failed\n");
-        np->state = UNUSED;
-        return -1;
+        goto fail;
     }
+
+    // 让失败清理知道需要释放多少用户页
+    np->sz = p->sz;
 
     if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
     {
         printf("fork: uvmcopy failed\n");
-        np->state = UNUSED;
-        return -1;
+        goto fail;
     }
 
     /*
@@ -477,6 +521,10 @@ int proc_fork(void)
      * 父进程从 fork 返回子进程 pid。
      */
     return np->pid;
+
+fail:
+    freeproc_partial(np);
+    return -1;
 }
 
 int proc_wait(void)
