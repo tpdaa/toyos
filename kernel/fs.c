@@ -785,6 +785,113 @@ int fs_writefile(const char *name, const char *content)
     return 0;
 }
 
+int fs_appendfile(const char *name, const char *content)
+{
+    unsigned char buf[BSIZE];
+    unsigned char data[BSIZE];
+    struct dinode *dip;
+    int inum;
+    unsigned int old_size;
+    unsigned int append_len;
+    unsigned int new_size;
+    unsigned int data_block;
+
+    inum = fs_lookup(name);
+    if (inum < 0) 
+    {
+        printf("fs_appendfile: file not found: %s\n", name);
+        return -1;
+    }
+
+    if ((unsigned int)inum >= NINODES) 
+    {
+        printf("fs_appendfile: bad inum=%d\n", inum);
+        return -1;
+    }
+
+    append_len = strlen_fs(content);
+
+    /*
+     * 读取 inode table。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_appendfile: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+
+    if (dip[inum].type != T_FILE) 
+    {
+        printf("fs_appendfile: not a file: %s\n", name);
+        return -1;
+    }
+
+    old_size = dip[inum].size;
+    data_block = dip[inum].data_block;
+
+    if (old_size > BSIZE) 
+    {
+        printf("fs_appendfile: bad old size=%d\n", old_size);
+        return -1;
+    }
+
+    if (append_len > BSIZE || old_size + append_len > BSIZE) 
+    {
+        printf("fs_appendfile: file too large old=%d append=%d\n",
+               old_size, append_len);
+        return -1;
+    }
+
+    if (data_block < DATASTART || data_block >= NBLOCKS) 
+    {
+        printf("fs_appendfile: bad data block=%d\n", data_block);
+        return -1;
+    }
+
+    /*
+     * 读取原文件内容所在 data block。
+     */
+    memzero_fs(data, BSIZE);
+
+    if (block_read(data_block, data) < 0) 
+    {
+        printf("fs_appendfile: read data block failed\n");
+        return -1;
+    }
+
+    /*
+     * 从 old_size 位置开始追加新内容。
+     */
+    memcopy_fs(data + old_size, content, append_len);
+
+    if (block_write(data_block, data) < 0) 
+    {
+        printf("fs_appendfile: write data block failed\n");
+        return -1;
+    }
+
+    /*
+     * 更新 inode.size。
+     */
+    new_size = old_size + append_len;
+    dip[inum].size = new_size;
+
+    if (block_write(IBLOCK, buf) < 0) 
+    {
+        printf("fs_appendfile: write inode table failed\n");
+        return -1;
+    }
+
+    printf("fs_appendfile: appended %s inum=%d block=%d old=%d append=%d new=%d\n",
+           name, inum, data_block, old_size, append_len, new_size);
+
+    return 0;
+}
+
 int fs_unlink(const char *name)
 {
     unsigned char buf[BSIZE];

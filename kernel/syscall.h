@@ -20,6 +20,7 @@
 #define SYS_readfd 15
 #define SYS_closefd 16
 #define SYS_writefile 17
+#define SYS_appendfile 18
 
 #define PROG_SHELL 0
 #define PROG_HELLO 1
@@ -31,6 +32,7 @@
 #define PROG_UNLINK 7
 #define PROG_FDTEST 8
 #define PROG_WRITE 9
+#define PROG_APPEND 10
 
 void syscall(struct trapframe *tf);
 

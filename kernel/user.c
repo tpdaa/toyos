@@ -35,6 +35,9 @@ static const char shell_run_unlink_msg[] __attribute__((used, aligned(16), secti
 static const char shell_run_write_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run write\n";
 
+static const char shell_run_append_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run append\n";
+
 static const char shell_run_fdtest_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run fdtest\n";
 
@@ -145,6 +148,18 @@ static const char write_fail_msg[] __attribute__((used, aligned(16), section(".u
 
 static const char write_content[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "updated by writefile from user mode\n";
+
+static const char append_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "append: append note.txt\n";
+
+static const char append_done_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "append: done\n";
+
+static const char append_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "append: failed\n";
+
+static const char append_content[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "append line from user mode\n";
 
 static const char fdtest_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fdtest: open/read/close\n";
@@ -310,6 +325,14 @@ static long writefile(const char *name, const char *content)
 static long writefile(const char *name, const char *content)
 {
     return user_syscall(SYS_writefile, (long)name, (long)content, 0);
+}
+
+static long appendfile(const char *name, const char *content)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long appendfile(const char *name, const char *content)
+{
+    return user_syscall(SYS_appendfile, (long)name, (long)content, 0);
 }
 
 static long openfile(const char *name)
@@ -648,6 +671,28 @@ static void write_main(void)
     for (;;) {}
 }
 
+static void append_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void append_main(void)
+{
+    long r;
+
+    uputs(append_start_msg);
+
+    r = appendfile(cat_note_filename, append_content);
+    if (r < 0) 
+    {
+        uputs(append_fail_msg);
+        uexit(1);
+    }
+
+    uputs(append_done_msg);
+    uexit(0);
+
+    for (;;) {}
+}
+
 static void fdtest_main(void)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -730,6 +775,7 @@ static void shell_main(void)
     shell_run(shell_run_count_msg, PROG_COUNT);
     shell_run(shell_run_create_msg, PROG_CREATE);
     shell_run(shell_run_write_msg, PROG_WRITE);
+    shell_run(shell_run_append_msg, PROG_APPEND);
     shell_run(shell_run_cat_msg, PROG_CAT);
     shell_run(shell_run_ls_msg, PROG_LS);
     shell_run(shell_run_stat_msg, PROG_STAT);
@@ -789,6 +835,10 @@ void user_main(void)
     else if (prog == PROG_WRITE)
     {
         write_main();
+    }
+    else if (prog == PROG_APPEND)
+    {
+        append_main();
     }
     else
     {
