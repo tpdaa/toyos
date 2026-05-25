@@ -41,6 +41,9 @@ static const char shell_run_append_msg[] __attribute__((used, aligned(16), secti
 static const char shell_run_fdtest_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run fdtest\n";
 
+static const char shell_run_fdwrite_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run fdwrite\n";
+
 static const char shell_wait_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: command finished\n";
 
@@ -169,6 +172,18 @@ static const char fdtest_done_msg[] __attribute__((used, aligned(16), section(".
 
 static const char fdtest_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fdtest: failed\n";
+
+static const char fdwrite_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "fdwrite: open/write/close note.txt\n";
+
+static const char fdwrite_done_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "fdwrite: done\n";
+
+static const char fdwrite_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "fdwrite: failed\n";
+
+static const char fdwrite_content[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "written by fd write\n";
 
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
@@ -351,6 +366,14 @@ static long readfd(long fd, char *buf, unsigned long max)
     return user_syscall(SYS_readfd, fd, (long)buf, (long)max);
 }
 
+static long writefd(long fd, const char *buf, unsigned long n)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long writefd(long fd, const char *buf, unsigned long n)
+{
+    return user_syscall(SYS_writefd, fd, (long)buf, (long)n);
+}
+
 static long closefd(long fd)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -412,6 +435,21 @@ static void print_stat_line(const char *name, struct ufilestat *st)
     uputs(num);
 
     uputs(newline_msg);
+}
+
+static unsigned long ustrlen(const char *s)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static unsigned long ustrlen(const char *s)
+{
+    unsigned long n = 0;
+
+    while (s[n] != '\0') 
+    {
+        n++;
+    }
+
+    return n;
 }
 
 static void hello_main(void)
@@ -733,6 +771,43 @@ static void fdtest_main(void)
     for (;;) {}
 }
 
+static void fdwrite_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void fdwrite_main(void)
+{
+    long fd;
+    long n;
+
+    uputs(fdwrite_start_msg);
+
+    fd = openfile(cat_note_filename);
+    if (fd < 0) 
+    {
+        uputs(fdwrite_fail_msg);
+        uexit(1);
+    }
+
+    n = writefd(fd, fdwrite_content, ustrlen(fdwrite_content));
+    if (n < 0) 
+    {
+        uputs(fdwrite_fail_msg);
+        closefd(fd);
+        uexit(1);
+    }
+
+    if (closefd(fd) < 0) 
+    {
+        uputs(fdwrite_fail_msg);
+        uexit(1);
+    }
+
+    uputs(fdwrite_done_msg);
+    uexit(0);
+
+    for (;;) {}
+}
+
 static void shell_run(const char *msg, int program_id)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -776,6 +851,7 @@ static void shell_main(void)
     shell_run(shell_run_create_msg, PROG_CREATE);
     shell_run(shell_run_write_msg, PROG_WRITE);
     shell_run(shell_run_append_msg, PROG_APPEND);
+    shell_run(shell_run_fdwrite_msg, PROG_FDWRITE);
     shell_run(shell_run_cat_msg, PROG_CAT);
     shell_run(shell_run_ls_msg, PROG_LS);
     shell_run(shell_run_stat_msg, PROG_STAT);
@@ -839,6 +915,10 @@ void user_main(void)
     else if (prog == PROG_APPEND)
     {
         append_main();
+    }
+    else if (prog == PROG_FDWRITE)
+    {
+        fdwrite_main();
     }
     else
     {

@@ -1166,6 +1166,93 @@ int fs_readi_at(unsigned int inum, char *dst, unsigned int max, unsigned int off
     return n;
 }
 
+int fs_writei_at(unsigned int inum, const char *src, unsigned int n, unsigned int off)
+{
+    unsigned char ibuf[BSIZE];
+    unsigned char data[BSIZE];
+    struct dinode *dip;
+    struct dinode ino;
+    unsigned int new_size;
+
+    if (inum >= NINODES) 
+    {
+        printf("fs_writei_at: bad inum %d\n", inum);
+        return -1;
+    }
+
+    if (n == 0) 
+    {
+        return 0;
+    }
+
+    if (off >= BSIZE || off + n > BSIZE) 
+    {
+        printf("fs_writei_at: write too large off=%d n=%d\n", off, n);
+        return -1;
+    }
+
+    memzero_fs(ibuf, BSIZE);
+
+    if (block_read(IBLOCK, ibuf) < 0) 
+    {
+        printf("fs_writei_at: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)ibuf;
+    ino = dip[inum];
+
+    if (ino.type != T_FILE) 
+    {
+        printf("fs_writei_at: inode %d is not file\n", inum);
+        return -1;
+    }
+
+    if (ino.data_block < DATASTART || ino.data_block >= NBLOCKS) 
+    {
+        printf("fs_writei_at: bad data block=%d\n", ino.data_block);
+        return -1;
+    }
+
+    memzero_fs(data, BSIZE);
+
+    if (block_read(ino.data_block, data) < 0) 
+    {
+        printf("fs_writei_at: read data block failed\n");
+        return -1;
+    }
+
+    /*
+     * 从 off 位置开始写入 n 字节。
+     * 这会覆盖原文件中对应范围的内容。
+     */
+    memcopy_fs(data + off, src, n);
+
+    if (block_write(ino.data_block, data) < 0) 
+    {
+        printf("fs_writei_at: write data block failed\n");
+        return -1;
+    }
+
+    /*
+     * 如果写入越过原文件末尾，就扩大 size。
+     * 如果只是覆盖中间部分，size 不变。
+     */
+    new_size = off + n;
+    if (new_size > ino.size) 
+    {
+        dip[inum].size = new_size;
+
+        if (block_write(IBLOCK, ibuf) < 0) 
+        {
+            printf("fs_writei_at: update inode size failed\n");
+            return -1;
+        }
+    }
+
+    return (int)n;
+}
+
 void fs_test(void)
 {
     unsigned char buf[BSIZE];

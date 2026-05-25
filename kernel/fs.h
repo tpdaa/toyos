@@ -63,6 +63,7 @@ int fs_unlink(const char *name);
 int fs_writefile(const char *name, const char *content);
 int fs_open(const char *name);
 int fs_readi_at(unsigned int inum, char *dst, unsigned int max, unsigned int off);
+int fs_writei_at(unsigned int inum, const char *src, unsigned int n, unsigned int off);
 int fs_appendfile(const char *name, const char *content);
 
 #endif

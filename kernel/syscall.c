@@ -372,6 +372,62 @@ static long sys_readfd(uint64 fd_arg, uint64 buf_uva, uint64 max)
     return n;
 }
 
+static long sys_writefd(uint64 fd_arg, uint64 buf_uva, uint64 n_arg)
+{
+    char kbuf[256];
+    struct proc *p = myproc();
+    int fd = (int)fd_arg;
+    uint64 n = n_arg;
+    int written;
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_writefd: no current process\n");
+        return -1;
+    }
+
+    if (fd < 0 || fd >= NOFILE || !p->files[fd].used) 
+    {
+        printf("sys_writefd: bad fd=%d\n", fd);
+        return -1;
+    }
+
+    if (n == 0) 
+    {
+        return 0;
+    }
+
+    if (n > sizeof(kbuf)) 
+    {
+        n = sizeof(kbuf);
+    }
+
+    /*
+     * 写入数据来自用户态 buf，所以必须 copyin。
+     * 注意这里不是 copystr，因为写入内容不一定非要是字符串；
+     * 但我们现在用户态测试会传字符串长度。
+     */
+    if (copyin(p->pagetable, kbuf, buf_uva, n) < 0) 
+    {
+        printf("sys_writefd: copyin failed\n");
+        return -1;
+    }
+
+    written = fs_writei_at(p->files[fd].inum,
+                           kbuf,
+                           (unsigned int)n,
+                           p->files[fd].off);
+    if (written < 0) 
+    {
+        printf("sys_writefd: fs_writei_at failed\n");
+        return -1;
+    }
+
+    p->files[fd].off += (unsigned int)written;
+
+    return written;
+}
+
 static long sys_closefd(uint64 fd_arg)
 {
     struct proc *p = myproc();
@@ -469,6 +525,9 @@ void syscall(struct trapframe *tf)
             break;
         case SYS_appendfile:
             tf->a0 = sys_appendfile(tf->a0, tf->a1);
+            break;
+        case SYS_writefd:
+            tf->a0 = sys_writefd(tf->a0, tf->a1, tf->a2);
             break;
         default:
             printf("unknown syscall: %ld\n",num);
