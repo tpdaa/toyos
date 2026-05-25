@@ -32,6 +32,9 @@ static const char shell_run_stat_msg[] __attribute__((used, aligned(16), section
 static const char shell_run_unlink_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run unlink\n";
 
+static const char shell_run_write_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run write\n";
+
 static const char shell_run_fdtest_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run fdtest\n";
 
@@ -130,6 +133,18 @@ static const char unlink_read_ok_msg[] __attribute__((used, aligned(16), section
 
 static const char unlink_read_bad_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "unlink: unexpected read success after unlink\n";
+
+static const char write_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "write: overwrite note.txt\n";
+
+static const char write_done_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "write: done\n";
+
+static const char write_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "write: failed\n";
+
+static const char write_content[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "updated by writefile from user mode\n";
 
 static const char fdtest_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fdtest: open/read/close\n";
@@ -287,6 +302,14 @@ static long unlinkfile(const char *name)
 static long unlinkfile(const char *name)
 {
     return user_syscall(SYS_unlinkfile, (long)name, 0, 0);
+}
+
+static long writefile(const char *name, const char *content)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long writefile(const char *name, const char *content)
+{
+    return user_syscall(SYS_writefile, (long)name, (long)content, 0);
 }
 
 static long openfile(const char *name)
@@ -603,6 +626,28 @@ static void unlink_main(void)
     for (;;) {}
 }
 
+static void write_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void write_main(void)
+{
+    long r;
+
+    uputs(write_start_msg);
+
+    r = writefile(cat_note_filename, write_content);
+    if (r < 0) 
+    {
+        uputs(write_fail_msg);
+        uexit(1);
+    }
+
+    uputs(write_done_msg);
+    uexit(0);
+
+    for (;;) {}
+}
+
 static void fdtest_main(void)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -684,6 +729,7 @@ static void shell_main(void)
     shell_run(shell_run_hello_msg, PROG_HELLO);
     shell_run(shell_run_count_msg, PROG_COUNT);
     shell_run(shell_run_create_msg, PROG_CREATE);
+    shell_run(shell_run_write_msg, PROG_WRITE);
     shell_run(shell_run_cat_msg, PROG_CAT);
     shell_run(shell_run_ls_msg, PROG_LS);
     shell_run(shell_run_stat_msg, PROG_STAT);
@@ -739,6 +785,10 @@ void user_main(void)
     else if (prog == PROG_FDTEST)
     {
         fdtest_main();
+    }
+    else if (prog == PROG_WRITE)
+    {
+        write_main();
     }
     else
     {

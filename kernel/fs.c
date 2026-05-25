@@ -700,6 +700,91 @@ int fs_create(const char *name, const char *content)
     return 0;
 }
 
+int fs_writefile(const char *name, const char *content)
+{
+    unsigned char buf[BSIZE];
+    struct dinode *dip;
+    int inum;
+    unsigned int content_len;
+    unsigned int data_block;
+
+    inum = fs_lookup(name);
+    if (inum < 0) 
+    {
+        printf("fs_writefile: file not found: %s\n", name);
+        return -1;
+    }
+
+    if ((unsigned int)inum >= NINODES) 
+    {
+        printf("fs_writefile: bad inum=%d\n", inum);
+        return -1;
+    }
+
+    content_len = strlen_fs(content);
+    if (content_len > BSIZE) 
+    {
+        printf("fs_writefile: content too large size=%d\n", content_len);
+        return -1;
+    }
+
+    /*
+     * 读取 inode table，找到目标文件 inode。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_writefile: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+
+    if (dip[inum].type != T_FILE) 
+    {
+        printf("fs_writefile: not a file: %s\n", name);
+        return -1;
+    }
+
+    data_block = dip[inum].data_block;
+
+    if (data_block < DATASTART || data_block >= NBLOCKS) 
+    {
+        printf("fs_writefile: bad data block=%d\n", data_block);
+        return -1;
+    }
+
+    /*
+     * 更新 inode.size。
+     * data_block 不变，因为这是覆盖写，不重新分配块。
+     */
+    dip[inum].size = content_len;
+
+    if (block_write(IBLOCK, buf) < 0) 
+    {
+        printf("fs_writefile: write inode table failed\n");
+        return -1;
+    }
+
+    /*
+     * 覆盖写文件内容。
+     */
+    memzero_fs(buf, BSIZE);
+    memcopy_fs(buf, content, content_len);
+
+    if (block_write(data_block, buf) < 0) 
+    {
+        printf("fs_writefile: write data block failed\n");
+        return -1;
+    }
+
+    printf("fs_writefile: wrote %s inum=%d block=%d size=%d\n",
+           name, inum, data_block, content_len);
+
+    return 0;
+}
+
 int fs_unlink(const char *name)
 {
     unsigned char buf[BSIZE];

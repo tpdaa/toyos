@@ -598,7 +598,7 @@ int proc_exec(int program_id)
         return -1;
     }
 
-    if (program_id < PROG_SHELL || program_id > PROG_FDTEST)
+    if (program_id < PROG_SHELL || program_id >  PROG_WRITE)
     {
         printf("exec: bad program_id=%d\n", program_id);
         return -1;

@@ -218,6 +218,39 @@ static long sys_unlinkfile(uint64 name_uva)
     return 0;
 }
 
+static long sys_writefile(uint64 name_uva, uint64 content_uva)
+{
+    char name[32];
+    char content[256];
+    struct proc *p = myproc();
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_writefile: no current process\n");
+        return -1;
+    }
+
+    if (copystr(p->pagetable, name, name_uva, sizeof(name)) < 0) 
+    {
+        printf("sys_writefile: bad filename %p\n", (void *)name_uva);
+        return -1;
+    }
+
+    if (copystr(p->pagetable, content, content_uva, sizeof(content)) < 0) 
+    {
+        printf("sys_writefile: bad content %p\n", (void *)content_uva);
+        return -1;
+    }
+
+    if (fs_writefile(name, content) < 0) 
+    {
+        printf("sys_writefile: fs_writefile failed\n");
+        return -1;
+    }
+
+    return 0;
+}
+
 static long sys_openfile(uint64 name_uva)
 {
     char name[32];
@@ -397,6 +430,9 @@ void syscall(struct trapframe *tf)
             break;
         case SYS_closefd:
             tf->a0 = sys_closefd(tf->a0);
+            break;
+        case SYS_writefile:
+            tf->a0 = sys_writefile(tf->a0, tf->a1);
             break;
         default:
             printf("unknown syscall: %ld\n",num);
