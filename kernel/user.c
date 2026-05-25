@@ -1,6 +1,13 @@
 #include "syscall.h"
 #include "user.h"
 
+struct ufilestat {
+    unsigned int inum;
+    unsigned int type;
+    unsigned int size;
+    unsigned int data_block;
+};
+
 static const char shell_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "\nToyOS shell start\n";
 
@@ -15,6 +22,12 @@ static const char shell_run_cat_msg[] __attribute__((used, aligned(16), section(
 
 static const char shell_run_ls_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run ls\n";
+
+static const char shell_run_create_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run create\n";
+
+static const char shell_run_stat_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run stat\n";
 
 static const char shell_wait_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: command finished\n";
@@ -58,11 +71,45 @@ static const char cat_readme_filename[] __attribute__((used, aligned(16), sectio
 static const char cat_missing_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "missing.txt";
 
+static const char cat_note_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "note.txt";
+
+static const char cat_user_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "user.txt";
+
 static const char ls_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "ls: root directory\n";
 
 static const char ls_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "ls: listfiles failed\n";
+
+static const char create_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "create: creating user.txt\n";
+
+static const char create_done_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "create: done\n";
+
+static const char create_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "create: failed\n";
+
+static const char create_filename[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "user.txt";
+
+static const char create_content[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "created from user mode\n";
+
+static const char create_dup_ok_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "create: duplicate user.txt rejected, good\n";
+
+static const char create_dup_bad_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "create: unexpected duplicate create success\n";
+
+static const char stat_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "stat: files\n";
+
+static const char stat_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "stat: failed\n";
+
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
 
@@ -71,6 +118,21 @@ static const char exec_fail_msg[] __attribute__((used, aligned(16), section(".us
 
 static const char unknown_prog_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "unknown program id\n";
+
+static const char stat_prefix_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "stat: ";
+
+static const char stat_inum_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    " inum=";
+
+static const char stat_size_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    " size=";
+
+static const char stat_block_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    " block=";
+
+static const char newline_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "\n";
 
 static void user_delay(void)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
@@ -173,6 +235,77 @@ static long listfiles(char *buf, unsigned long max)
     return user_syscall(SYS_listfiles, (long)buf, (long)max, 0);
 }
 
+static long createfile(const char *name, const char *content)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long createfile(const char *name, const char *content)
+{
+    return user_syscall(SYS_createfile, (long)name, (long)content, 0);
+}
+
+static long statfile(const char *name, struct ufilestat *st)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long statfile(const char *name, struct ufilestat *st)
+{
+    return user_syscall(SYS_statfile, (long)name, (long)st, 0);
+}
+
+static void uitoa(unsigned int x, char *buf)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void uitoa(unsigned int x, char *buf)
+{
+    char tmp[16];
+    int i = 0;
+    int j = 0;
+
+    if (x == 0) 
+    {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return;
+    }
+
+    while (x > 0) 
+    {
+        tmp[i++] = '0' + (x % 10);
+        x /= 10;
+    }
+
+    while (i > 0) 
+    {
+        buf[j++] = tmp[--i];
+    }
+
+    buf[j] = '\0';
+}
+
+static void print_stat_line(const char *name, struct ufilestat *st)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void print_stat_line(const char *name, struct ufilestat *st)
+{
+    char num[16];
+
+    uputs(stat_prefix_msg);
+    uputs(name);
+
+    uputs(stat_inum_msg);
+    uitoa(st->inum, num);
+    uputs(num);
+
+    uputs(stat_size_msg);
+    uitoa(st->size, num);
+    uputs(num);
+
+    uputs(stat_block_msg);
+    uitoa(st->data_block, num);
+    uputs(num);
+
+    uputs(newline_msg);
+}
+
 static void hello_main(void)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -228,7 +361,27 @@ static void cat_main(void)
     buf[n] = '\0';
     uputs(buf);
 
-        n = readfile(cat_missing_filename, buf, sizeof(buf) - 1);
+    n = readfile(cat_note_filename, buf, sizeof(buf) - 1);
+    if (n < 0) 
+    {
+        uputs(cat_fail_msg);
+        uexit(1);
+    }
+
+    buf[n] = '\0';
+    uputs(buf);
+
+    n = readfile(cat_user_filename, buf, sizeof(buf) - 1);
+    if (n < 0) 
+    {
+        uputs(cat_fail_msg);
+        uexit(1);
+    }
+
+    buf[n] = '\0';
+    uputs(buf);
+
+    n = readfile(cat_missing_filename, buf, sizeof(buf) - 1);
     if (n < 0) 
     {
         uputs(cat_missing_ok_msg);
@@ -263,6 +416,85 @@ static void ls_main(void)
 
     buf[n] = '\0';
     uputs(buf);
+
+    uexit(0);
+
+    for (;;) {}
+}
+
+static void create_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void create_main(void)
+{
+    long r;
+
+    uputs(create_start_msg);
+
+    r = createfile(create_filename, create_content);
+    if (r < 0) 
+    {
+        uputs(create_fail_msg);
+        uexit(1);
+    }
+
+    uputs(create_done_msg);
+
+    /*
+     * Test duplicate create path.
+     * Creating the same file again should fail.
+     */
+    r = createfile(create_filename, create_content);
+    if (r < 0) 
+    {
+        uputs(create_dup_ok_msg);
+    } 
+    else 
+    {
+        uputs(create_dup_bad_msg);
+        uexit(1);
+    }
+    uexit(0);
+
+    for (;;) {}
+}
+
+static void stat_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void stat_main(void)
+{
+    struct ufilestat st;
+
+    uputs(stat_start_msg);
+
+    if (statfile(cat_filename, &st) < 0) 
+    {
+        uputs(stat_fail_msg);
+        uexit(1);
+    }
+    print_stat_line(cat_filename, &st);
+
+    if (statfile(cat_readme_filename, &st) < 0) 
+    {
+        uputs(stat_fail_msg);
+        uexit(1);
+    }
+    print_stat_line(cat_readme_filename, &st);
+
+    if (statfile(cat_note_filename, &st) < 0) 
+    {
+        uputs(stat_fail_msg);
+        uexit(1);
+    }
+    print_stat_line(cat_note_filename, &st);
+
+    if (statfile(cat_user_filename, &st) < 0) 
+    {
+        uputs(stat_fail_msg);
+        uexit(1);
+    }
+    print_stat_line(cat_user_filename, &st);
 
     uexit(0);
 
@@ -309,8 +541,10 @@ static void shell_main(void)
 
     shell_run(shell_run_hello_msg, PROG_HELLO);
     shell_run(shell_run_count_msg, PROG_COUNT);
+    shell_run(shell_run_create_msg, PROG_CREATE);
     shell_run(shell_run_cat_msg, PROG_CAT);
     shell_run(shell_run_ls_msg, PROG_LS);
+    shell_run(shell_run_stat_msg, PROG_STAT);
 
     uputs(shell_done_msg);
     uexit(0);
@@ -344,6 +578,14 @@ void user_main(void)
     else if (prog == PROG_LS)
     {
         ls_main();
+    }
+    else if (prog == PROG_CREATE)
+    {
+        create_main();
+    }
+    else if (prog == PROG_STAT)
+    {
+        stat_main();
     }
     else
     {

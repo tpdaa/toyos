@@ -70,6 +70,42 @@ static unsigned int appendstr_fs(char *dst, unsigned int off, unsigned int max, 
     return off;
 }
 
+static void copy_name_to_dirent(char *dst, const char *name)
+{
+    unsigned int i = 0;
+
+    while (name[i] != '\0' && i + 1 < 28) 
+    {
+        dst[i] = name[i];
+        i++;
+    }
+
+    dst[i] = '\0';
+}
+
+static void bitmap_set(unsigned char *bitmap, unsigned int bit)
+{
+    bitmap[bit / 8] = bitmap[bit / 8] | (1 << (bit % 8));
+}
+
+static int bitmap_get(unsigned char *bitmap, unsigned int bit)
+{
+    return (bitmap[bit / 8] >> (bit % 8)) & 1;
+}
+
+static int bitmap_find_free(unsigned char *bitmap, unsigned int nbits)
+{
+    for (unsigned int i = 1; i < nbits; i++) 
+    {
+        if (!bitmap_get(bitmap, i)) 
+        {
+            return (int)i;
+        }
+    }
+
+    return -1;
+}
+
 void fs_init(void)
 {
     unsigned char buf[BSIZE];
@@ -93,6 +129,8 @@ void fs_init(void)
     sb.size = NBLOCKS;
     sb.nblocks = NBLOCKS - DATASTART;
     sb.ninodes = NINODES;
+    sb.inode_bitmap_start = IBITMAP_BLOCK;
+    sb.data_bitmap_start = DBITMAP_BLOCK;
     sb.inode_start = IBLOCK;
     sb.data_start = DATASTART;
 
@@ -101,6 +139,42 @@ void fs_init(void)
     if (block_write(SBLOCK, buf) < 0) 
     {
         printf("fs init failed: write superblock failed\n");
+        return;
+    }
+
+    /*
+    * inode bitmap.
+    * inode 1: root directory
+    * inode 2: hello.txt
+    * inode 3: readme.txt
+    */
+    memzero_fs(buf, BSIZE);
+
+    bitmap_set(buf, ROOTINO);
+    bitmap_set(buf, HELLOINO);
+    bitmap_set(buf, READMEINO);
+
+    if (block_write(IBITMAP_BLOCK, buf) < 0) 
+    {
+        printf("fs init failed: write inode bitmap failed\n");
+        return;
+    }
+
+    /*
+    * data bitmap.
+    * data block 5: root directory
+    * data block 6: hello.txt
+    * data block 7: readme.txt
+    */
+    memzero_fs(buf, BSIZE);
+
+    bitmap_set(buf, ROOTDIR_BLOCK - DATASTART);
+    bitmap_set(buf, HELLO_BLOCK - DATASTART);
+    bitmap_set(buf, README_BLOCK - DATASTART);
+
+    if (block_write(DBITMAP_BLOCK, buf) < 0) 
+    {
+        printf("fs init failed: write data bitmap failed\n");
         return;
     }
 
@@ -184,6 +258,11 @@ void fs_init(void)
     {
         printf("fs init failed: write readme data failed\n");
         return;
+    }
+
+    if (fs_create("note.txt", "created by fs_create\n") < 0)
+    {
+        printf("fs init warning: create note.txt failed\n");
     }
 
     printf("fs init done. magic=0x%x\n", sb.magic);
@@ -321,6 +400,44 @@ int fs_readfile(const char *name, char *dst, unsigned int max)
     return fs_readi((unsigned int)inum, dst, max);
 }
 
+int
+fs_stat(const char *name, struct filestat *st)
+{
+    unsigned char buf[BSIZE];
+    struct dinode *dip;
+    int inum;
+
+    inum = fs_lookup(name);
+    if (inum < 0) 
+    {
+        printf("fs_stat: file not found: %s\n", name);
+        return -1;
+    }
+
+    if ((unsigned int)inum >= NINODES) 
+    {
+        printf("fs_stat: bad inum=%d\n", inum);
+        return -1;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_stat: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+
+    st->inum = (unsigned int)inum;
+    st->type = (unsigned int)dip[inum].type;
+    st->size = dip[inum].size;
+    st->data_block = dip[inum].data_block;
+
+    return 0;
+}
+
 int fs_list(char *dst, unsigned int max)
 {
     unsigned char buf[BSIZE];
@@ -393,6 +510,191 @@ int fs_list(char *dst, unsigned int max)
     return off;
 }
 
+int fs_create(const char *name, const char *content)
+{
+    unsigned char buf[BSIZE];
+    unsigned char ibitmap[BSIZE];
+    unsigned char dbitmap[BSIZE];
+    struct dinode *dip;
+    struct dinode rootino;
+    struct dirent *de;
+    int free_inum;
+    int free_data_index;
+    unsigned int free_block;
+    unsigned int content_len;
+    unsigned int nentry;
+
+    /*
+     * 如果文件已经存在，就不重复创建。
+     */
+    if (fs_lookup(name) >= 0) 
+    {
+        printf("fs_create: file already exists: %s\n", name);
+        return -1;
+    }
+
+    content_len = strlen_fs(content);
+    if (content_len > BSIZE) 
+    {
+        printf("fs_create: content too large size=%d\n", content_len);
+        return -1;
+    }
+
+    /*
+     * 读取 inode bitmap，找空闲 inode。
+     */
+    memzero_fs(ibitmap, BSIZE);
+
+    if (block_read(IBITMAP_BLOCK, ibitmap) < 0) 
+    {
+        printf("fs_create: read inode bitmap failed\n");
+        return -1;
+    }
+
+    free_inum = bitmap_find_free(ibitmap, NINODES);
+    if (free_inum < 0) 
+    {
+        printf("fs_create: no free inode\n");
+        return -1;
+    }
+
+    /*
+     * 读取 data bitmap，找空闲 data block。
+     */
+    memzero_fs(dbitmap, BSIZE);
+
+    if (block_read(DBITMAP_BLOCK, dbitmap) < 0) 
+    {
+        printf("fs_create: read data bitmap failed\n");
+        return -1;
+    }
+
+    free_data_index = bitmap_find_free(dbitmap, NBLOCKS - DATASTART);
+    if (free_data_index < 0) 
+    {
+        printf("fs_create: no free data block\n");
+        return -1;
+    }
+
+    free_block = DATASTART + (unsigned int)free_data_index;
+
+    /*
+     * 读取 inode table，写入新 inode。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_create: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+
+    dip[free_inum].type = T_FILE;
+    dip[free_inum].size = content_len;
+    dip[free_inum].data_block = free_block;
+
+    rootino = dip[ROOTINO];
+
+    if (rootino.type != T_DIR) 
+    {
+        printf("fs_create: root is not directory\n");
+        return -1;
+    }
+
+    if (rootino.size + sizeof(struct dirent) > BSIZE) 
+    {
+        printf("fs_create: root directory full\n");
+        return -1;
+    }
+
+    if (block_write(IBLOCK, buf) < 0) 
+    {
+        printf("fs_create: write inode table failed\n");
+        return -1;
+    }
+
+    /*
+     * 写入文件内容。
+     */
+    memzero_fs(buf, BSIZE);
+    memcopy_fs(buf, content, content_len);
+
+    if (block_write(free_block, buf) < 0) 
+    {
+        printf("fs_create: write file data failed\n");
+        return -1;
+    }
+
+    /*
+     * 更新 root directory，追加一个 dirent。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(ROOTDIR_BLOCK, buf) < 0) 
+    {
+        printf("fs_create: read root directory failed\n");
+        return -1;
+    }
+
+    de = (struct dirent *)buf;
+    nentry = rootino.size / sizeof(struct dirent);
+
+    de[nentry].inum = (unsigned int)free_inum;
+    copy_name_to_dirent(de[nentry].name, name);
+
+    if (block_write(ROOTDIR_BLOCK, buf) < 0) 
+    {
+        printf("fs_create: write root directory failed\n");
+        return -1;
+    }
+
+    /*
+     * 更新 root inode 的目录大小。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_create: reread inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+    dip[ROOTINO].size = rootino.size + sizeof(struct dirent);
+
+    if (block_write(IBLOCK, buf) < 0) 
+    {
+        printf("fs_create: update root inode failed\n");
+        return -1;
+    }
+
+    /*
+     * 更新 inode bitmap 和 data bitmap。
+     */
+    bitmap_set(ibitmap, (unsigned int)free_inum);
+
+    if (block_write(IBITMAP_BLOCK, ibitmap) < 0) 
+    {
+        printf("fs_create: write inode bitmap failed\n");
+        return -1;
+    }
+
+    bitmap_set(dbitmap, (unsigned int)free_data_index);
+
+    if (block_write(DBITMAP_BLOCK, dbitmap) < 0) 
+    {
+        printf("fs_create: write data bitmap failed\n");
+        return -1;
+    }
+
+    printf("fs_create: created %s inum=%d block=%d size=%d\n",
+           name, free_inum, free_block, content_len);
+
+    return 0;
+}
+
 void fs_test(void)
 {
     unsigned char buf[BSIZE];
@@ -437,6 +739,50 @@ void fs_test(void)
     if (sb.data_start != DATASTART) 
     {
         printf("fs test failed: bad data_start=%d\n", sb.data_start);
+        return;
+    }
+
+    if (sb.inode_bitmap_start != IBITMAP_BLOCK) 
+    {
+        printf("fs test failed: bad inode_bitmap_start=%d\n", sb.inode_bitmap_start);
+        return;
+    }
+
+    if (sb.data_bitmap_start != DBITMAP_BLOCK) 
+    {
+        printf("fs test failed: bad data_bitmap_start=%d\n", sb.data_bitmap_start);
+        return;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBITMAP_BLOCK, buf) < 0) 
+    {
+        printf("fs test failed: read inode bitmap failed\n");
+        return;
+    }
+
+    if (!bitmap_get(buf, ROOTINO) ||
+        !bitmap_get(buf, HELLOINO) ||
+        !bitmap_get(buf, READMEINO))
+    {
+        printf("fs test failed: inode bitmap bad\n");
+        return;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(DBITMAP_BLOCK, buf) < 0) 
+    {
+        printf("fs test failed: read data bitmap failed\n");
+        return;
+    }
+
+    if (!bitmap_get(buf, ROOTDIR_BLOCK - DATASTART) ||
+        !bitmap_get(buf, HELLO_BLOCK - DATASTART) ||
+        !bitmap_get(buf, README_BLOCK - DATASTART)) 
+    {
+        printf("fs test failed: data bitmap bad\n");
         return;
     }
 
@@ -487,7 +833,7 @@ void fs_test(void)
     }
     readmebuf[n2] = '\0';
 
-    printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d read_n=%d\n",
+    printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d read_n=%d bitmap=ok\n",
        sb.size, sb.nblocks, sb.ninodes, rootino.data_block, n);
 
     printf("fs file content: %s", filebuf);

@@ -11,12 +11,14 @@
 #define T_FILE 2
 
 #define SBLOCK 1 //superblock 放在 block 1
-#define IBLOCK 2 //inode table 放在 block 2
-#define DATASTART 3 //数据区开始block
+#define IBITMAP_BLOCK 2
+#define DBITMAP_BLOCK 3
+#define IBLOCK 4 //inode table 放在 block 4
+#define DATASTART 5 //数据区开始block
 
-#define ROOTDIR_BLOCK 3 // 根目录内容所在 block
-#define HELLO_BLOCK 4  // hello.txt 文件内容所在 block
-#define README_BLOCK 5 // readme.txt 文件内容所在 block
+#define ROOTDIR_BLOCK 5 // 根目录内容所在 block
+#define HELLO_BLOCK 6  // hello.txt 文件内容所在 block
+#define README_BLOCK 7 // readme.txt 文件内容所在 block
 
 #define NINODES 16
 
@@ -25,6 +27,8 @@ struct superblock {
     unsigned int size; //整个 fake disk 的块数
     unsigned int nblocks; //数据块数量
     unsigned int ninodes; //inode 数量
+    unsigned int inode_bitmap_start;
+    unsigned int data_bitmap_start;
     unsigned int inode_start; //inode table 从哪个 block 开始
     unsigned int data_start; //data blocks 从哪个 block 开始
 };
@@ -40,11 +44,20 @@ struct dirent {
     char name[28];
 };
 
+struct filestat {
+    unsigned int inum;
+    unsigned int type;
+    unsigned int size;
+    unsigned int data_block;
+};
+
 void fs_init(void);
 void fs_test(void);
 int fs_readi(unsigned int inum, char *dst, unsigned int max);
 int fs_lookup(const char *name);
 int fs_readfile(const char *name, char *dst, unsigned int max);
+int fs_stat(const char *name, struct filestat *st);
 int fs_list(char *dst, unsigned int max);
+int fs_create(const char *name, const char *content);
 
 #endif

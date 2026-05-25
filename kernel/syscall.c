@@ -126,6 +126,72 @@ static long sys_listfiles(uint64 buf_uva, uint64 max)
     return n;
 }
 
+static long sys_createfile(uint64 name_uva, uint64 content_uva)
+{
+    char name[32];
+    char content[256];
+    struct proc *p = myproc();
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_createfile: no current process\n");
+        return -1;
+    }
+
+    if (copystr(p->pagetable, name, name_uva, sizeof(name)) < 0) 
+    {
+        printf("sys_createfile: bad filename %p\n", (void *)name_uva);
+        return -1;
+    }
+
+    if (copystr(p->pagetable, content, content_uva, sizeof(content)) < 0) 
+    {
+        printf("sys_createfile: bad content %p\n", (void *)content_uva);
+        return -1;
+    }
+
+    if (fs_create(name, content) < 0) 
+    {
+        printf("sys_createfile: fs_create failed\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+static long sys_statfile(uint64 name_uva, uint64 st_uva)
+{
+    char name[32];
+    struct filestat st;
+    struct proc *p = myproc();
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_statfile: no current process\n");
+        return -1;
+    }
+
+    if (copystr(p->pagetable, name, name_uva, sizeof(name)) < 0) 
+    {
+        printf("sys_statfile: bad filename %p\n", (void *)name_uva);
+        return -1;
+    }
+
+    if (fs_stat(name, &st) < 0) 
+    {
+        printf("sys_statfile: fs_stat failed\n");
+        return -1;
+    }
+
+    if (copyout(p->pagetable, st_uva, (const char *)&st, sizeof(st)) < 0) 
+    {
+        printf("sys_statfile: copyout failed\n");
+        return -1;
+    }
+
+    return 0;
+}
+
 void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
@@ -176,6 +242,12 @@ void syscall(struct trapframe *tf)
             break;
         case SYS_listfiles:
             tf->a0 = sys_listfiles(tf->a0, tf->a1);
+            break;
+        case SYS_createfile:
+            tf->a0 = sys_createfile(tf->a0, tf->a1);
+            break;
+        case SYS_statfile:
+            tf->a0 = sys_statfile(tf->a0, tf->a1);
             break;
         default:
             printf("unknown syscall: %ld\n",num);
