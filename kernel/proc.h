@@ -7,6 +7,7 @@
 
 #define NPROC 8
 #define KSTACK_SIZE 8192
+#define NOFILE 8
 
 enum procstate 
 {
@@ -37,6 +38,12 @@ struct context
     uint64 s11;
 };
 
+struct ofile {
+    int used;
+    unsigned int inum;
+    unsigned int off;
+};
+
 struct proc 
 {
     int pid;
@@ -58,6 +65,7 @@ struct proc
     int xstate;
 
     void *chan;
+    struct ofile files[NOFILE];
     int program_id;
 
     char name[16];

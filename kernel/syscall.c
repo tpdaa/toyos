@@ -218,6 +218,117 @@ static long sys_unlinkfile(uint64 name_uva)
     return 0;
 }
 
+static long sys_openfile(uint64 name_uva)
+{
+    char name[32];
+    struct proc *p = myproc();
+    int inum;
+    int fd;
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_openfile: no current process\n");
+        return -1;
+    }
+
+    if (copystr(p->pagetable, name, name_uva, sizeof(name)) < 0) 
+    {
+        printf("sys_openfile: bad filename %p\n", (void *)name_uva);
+        return -1;
+    }
+
+    inum = fs_open(name);
+    if (inum < 0) 
+    {
+        printf("sys_openfile: fs_open failed\n");
+        return -1;
+    }
+
+    for (fd = 0; fd < NOFILE; fd++) 
+    {
+        if (!p->files[fd].used) 
+        {
+            p->files[fd].used = 1;
+            p->files[fd].inum = (unsigned int)inum;
+            p->files[fd].off = 0;
+            return fd;
+        }
+    }
+
+    printf("sys_openfile: no free fd\n");
+    return -1;
+}
+
+static long sys_readfd(uint64 fd_arg, uint64 buf_uva, uint64 max)
+{
+    char kbuf[256];
+    struct proc *p = myproc();
+    int fd = (int)fd_arg;
+    int n;
+
+    if (p == 0 || p->pagetable == 0) 
+    {
+        printf("sys_readfd: no current process\n");
+        return -1;
+    }
+
+    if (fd < 0 || fd >= NOFILE || !p->files[fd].used) 
+    {
+        printf("sys_readfd: bad fd=%d\n", fd);
+        return -1;
+    }
+
+    if (max == 0) 
+    {
+        return 0;
+    }
+
+    if (max > sizeof(kbuf)) 
+    {
+        max = sizeof(kbuf);
+    }
+
+    n = fs_readi_at(p->files[fd].inum, kbuf, (unsigned int)max, p->files[fd].off);
+    if (n < 0) 
+    {
+        printf("sys_readfd: fs_readi_at failed\n");
+        return -1;
+    }
+
+    if (copyout(p->pagetable, buf_uva, kbuf, (uint64)n) < 0) 
+    {
+        printf("sys_readfd: copyout failed\n");
+        return -1;
+    }
+
+    p->files[fd].off += (unsigned int)n;
+
+    return n;
+}
+
+static long sys_closefd(uint64 fd_arg)
+{
+    struct proc *p = myproc();
+    int fd = (int)fd_arg;
+
+    if (p == 0) 
+    {
+        return -1;
+    }
+
+    if (fd < 0 || fd >= NOFILE || !p->files[fd].used) 
+    {
+        printf("sys_closefd: bad fd=%d\n", fd);
+        return -1;
+    }
+
+    p->files[fd].used = 0;
+    p->files[fd].inum = 0;
+    p->files[fd].off = 0;
+
+    return 0;
+}
+
 void syscall(struct trapframe *tf)
 {
     uint64 num = tf->a7;
@@ -277,6 +388,15 @@ void syscall(struct trapframe *tf)
             break;
         case SYS_unlinkfile:
             tf->a0 = sys_unlinkfile(tf->a0);
+            break;
+        case SYS_openfile:
+            tf->a0 = sys_openfile(tf->a0);
+            break;
+        case SYS_readfd:
+            tf->a0 = sys_readfd(tf->a0, tf->a1, tf->a2);
+            break;
+        case SYS_closefd:
+            tf->a0 = sys_closefd(tf->a0);
             break;
         default:
             printf("unknown syscall: %ld\n",num);

@@ -60,5 +60,7 @@ int fs_stat(const char *name, struct filestat *st);
 int fs_list(char *dst, unsigned int max);
 int fs_create(const char *name, const char *content);
 int fs_unlink(const char *name);
+int fs_open(const char *name);
+int fs_readi_at(unsigned int inum, char *dst, unsigned int max, unsigned int off);
 
 #endif

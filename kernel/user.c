@@ -32,6 +32,9 @@ static const char shell_run_stat_msg[] __attribute__((used, aligned(16), section
 static const char shell_run_unlink_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run unlink\n";
 
+static const char shell_run_fdtest_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run fdtest\n";
+
 static const char shell_wait_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: command finished\n";
 
@@ -127,6 +130,15 @@ static const char unlink_read_ok_msg[] __attribute__((used, aligned(16), section
 
 static const char unlink_read_bad_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "unlink: unexpected read success after unlink\n";
+
+static const char fdtest_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "fdtest: open/read/close\n";
+
+static const char fdtest_done_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "fdtest: done\n";
+
+static const char fdtest_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "fdtest: failed\n";
 
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
@@ -275,6 +287,30 @@ static long unlinkfile(const char *name)
 static long unlinkfile(const char *name)
 {
     return user_syscall(SYS_unlinkfile, (long)name, 0, 0);
+}
+
+static long openfile(const char *name)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long openfile(const char *name)
+{
+    return user_syscall(SYS_openfile, (long)name, 0, 0);
+}
+
+static long readfd(long fd, char *buf, unsigned long max)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long readfd(long fd, char *buf, unsigned long max)
+{
+    return user_syscall(SYS_readfd, fd, (long)buf, (long)max);
+}
+
+static long closefd(long fd)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long closefd(long fd)
+{
+    return user_syscall(SYS_closefd, fd, 0, 0);
 }
 
 static void uitoa(unsigned int x, char *buf)
@@ -567,6 +603,46 @@ static void unlink_main(void)
     for (;;) {}
 }
 
+static void fdtest_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void fdtest_main(void)
+{
+    char buf[128];
+    long fd;
+    long n;
+
+    uputs(fdtest_start_msg);
+
+    fd = openfile(cat_filename);
+    if (fd < 0) 
+    {
+        uputs(fdtest_fail_msg);
+        uexit(1);
+    }
+
+    n = readfd(fd, buf, sizeof(buf) - 1);
+    if (n < 0) 
+    {
+        uputs(fdtest_fail_msg);
+        uexit(1);
+    }
+
+    buf[n] = '\0';
+    uputs(buf);
+
+    if (closefd(fd) < 0) 
+    {
+        uputs(fdtest_fail_msg);
+        uexit(1);
+    }
+
+    uputs(fdtest_done_msg);
+    uexit(0);
+
+    for (;;) {}
+}
+
 static void shell_run(const char *msg, int program_id)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -611,6 +687,7 @@ static void shell_main(void)
     shell_run(shell_run_cat_msg, PROG_CAT);
     shell_run(shell_run_ls_msg, PROG_LS);
     shell_run(shell_run_stat_msg, PROG_STAT);
+    shell_run(shell_run_fdtest_msg, PROG_FDTEST);
     shell_run(shell_run_unlink_msg, PROG_UNLINK);
     shell_run(shell_run_ls_msg, PROG_LS);
 
@@ -658,6 +735,10 @@ void user_main(void)
     else if (prog == PROG_UNLINK)
     {
         unlink_main();
+    }
+    else if (prog == PROG_FDTEST)
+    {
+        fdtest_main();
     }
     else
     {

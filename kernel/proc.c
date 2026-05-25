@@ -65,6 +65,12 @@ void procinit(void)
         proc[i].xstate = 0;
         proc[i].program_id = 0;
         proc[i].chan = 0;
+        for (int j = 0; j < NOFILE; j++) 
+        {
+            proc[i].files[j].used = 0;
+            proc[i].files[j].inum = 0;
+            proc[i].files[j].off = 0;
+        }
 
         memset_bytes(&proc[i].trapframe, 0, sizeof(proc[i].trapframe));
         memset_bytes(&proc[i].context, 0, sizeof(proc[i].context));
@@ -98,7 +104,12 @@ static struct proc *allocproc(void)
             p->xstate = 0;
             p->program_id = 0;
             p->chan = 0;
-
+            for (int i = 0; i < NOFILE; i++) 
+            {
+                p->files[i].used = 0;
+                p->files[i].inum = 0;
+                p->files[i].off = 0;
+            }
             memset_bytes(&p->trapframe, 0, sizeof(p->trapframe));
             memset_bytes(&p->context, 0, sizeof(p->context));
             memset_bytes(p->kstack, 0, KSTACK_SIZE);
@@ -587,7 +598,7 @@ int proc_exec(int program_id)
         return -1;
     }
 
-    if (program_id < PROG_SHELL || program_id > PROG_UNLINK)
+    if (program_id < PROG_SHELL || program_id > PROG_FDTEST)
     {
         printf("exec: bad program_id=%d\n", program_id);
         return -1;

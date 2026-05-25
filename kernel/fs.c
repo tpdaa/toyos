@@ -871,6 +871,109 @@ int fs_unlink(const char *name)
     return 0;
 }
 
+int fs_open(const char *name)
+{
+    unsigned char buf[BSIZE];
+    struct dinode *dip;
+    int inum;
+
+    inum = fs_lookup(name);
+    if (inum < 0) 
+    {
+        printf("fs_open: file not found: %s\n", name);
+        return -1;
+    }
+
+    if ((unsigned int)inum >= NINODES) 
+    {
+        printf("fs_open: bad inum=%d\n", inum);
+        return -1;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_open: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+
+    if (dip[inum].type != T_FILE) 
+    {
+        printf("fs_open: not a file: %s\n", name);
+        return -1;
+    }
+
+    return inum;
+}
+
+int fs_readi_at(unsigned int inum, char *dst, unsigned int max, unsigned int off)
+{
+    unsigned char buf[BSIZE];
+    struct dinode *dip;
+    struct dinode ino;
+    unsigned int n;
+
+    if (inum >= NINODES) 
+    {
+        printf("fs_readi_at: bad inum %d\n", inum);
+        return -1;
+    }
+
+    if (max == 0) 
+    {
+        return 0;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_readi_at: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+    ino = dip[inum];
+
+    if (ino.type != T_FILE) 
+    {
+        printf("fs_readi_at: inode %d is not file\n", inum);
+        return -1;
+    }
+
+    if (ino.size > BSIZE) 
+    {
+        printf("fs_readi_at: file too large size=%d\n", ino.size);
+        return -1;
+    }
+
+    if (off >= ino.size) 
+    {
+        return 0;
+    }
+
+    n = ino.size - off;
+    if (n > max) 
+    {
+        n = max;
+    }
+
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(ino.data_block, buf) < 0) 
+    {
+        printf("fs_readi_at: read data block failed\n");
+        return -1;
+    }
+
+    memcopy_fs(dst, buf + off, n);
+
+    return n;
+}
+
 void fs_test(void)
 {
     unsigned char buf[BSIZE];
