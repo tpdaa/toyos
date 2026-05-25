@@ -15,6 +15,7 @@
 #define SYS_listfiles 10
 #define SYS_createfile 11
 #define SYS_statfile 12
+#define SYS_unlinkfile 13
 
 #define PROG_SHELL 0
 #define PROG_HELLO 1
@@ -23,6 +24,7 @@
 #define PROG_LS 4
 #define PROG_CREATE 5
 #define PROG_STAT 6
+#define PROG_UNLINK 7
 
 void syscall(struct trapframe *tf);
 

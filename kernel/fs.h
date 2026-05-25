@@ -59,5 +59,6 @@ int fs_readfile(const char *name, char *dst, unsigned int max);
 int fs_stat(const char *name, struct filestat *st);
 int fs_list(char *dst, unsigned int max);
 int fs_create(const char *name, const char *content);
+int fs_unlink(const char *name);
 
 #endif

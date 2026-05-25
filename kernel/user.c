@@ -29,6 +29,9 @@ static const char shell_run_create_msg[] __attribute__((used, aligned(16), secti
 static const char shell_run_stat_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: run stat\n";
 
+static const char shell_run_unlink_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "shell: run unlink\n";
+
 static const char shell_wait_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "shell: command finished\n";
 
@@ -109,6 +112,21 @@ static const char stat_start_msg[] __attribute__((used, aligned(16), section(".u
 
 static const char stat_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "stat: failed\n";
+
+static const char unlink_start_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "unlink: removing user.txt\n";
+
+static const char unlink_done_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "unlink: done\n";
+
+static const char unlink_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "unlink: failed\n";
+
+static const char unlink_read_ok_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "unlink: user.txt read failed after unlink, good\n";
+
+static const char unlink_read_bad_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
+    "unlink: unexpected read success after unlink\n";
 
 static const char fork_fail_msg[] __attribute__((used, aligned(16), section(".user.rodata"))) =
     "fork failed\n";
@@ -249,6 +267,14 @@ static long statfile(const char *name, struct ufilestat *st)
 static long statfile(const char *name, struct ufilestat *st)
 {
     return user_syscall(SYS_statfile, (long)name, (long)st, 0);
+}
+
+static long unlinkfile(const char *name)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static long unlinkfile(const char *name)
+{
+    return user_syscall(SYS_unlinkfile, (long)name, 0, 0);
 }
 
 static void uitoa(unsigned int x, char *buf)
@@ -501,6 +527,46 @@ static void stat_main(void)
     for (;;) {}
 }
 
+static void unlink_main(void)
+    __attribute__((used, noinline, aligned(16), section(".user.text")));
+
+static void unlink_main(void)
+{
+    char buf[128];
+    long r;
+
+    uputs(unlink_start_msg);
+
+    r = unlinkfile(cat_user_filename);
+    if (r < 0) 
+    {
+        uputs(unlink_fail_msg);
+        uexit(1);
+    }
+
+    uputs(unlink_done_msg);
+
+    /*
+     * 删除后再读 user.txt，应该失败。
+     */
+    r = readfile(cat_user_filename, buf, sizeof(buf) - 1);
+    if (r < 0) 
+    {
+        uputs(unlink_read_ok_msg);
+    } 
+    else 
+    {
+        buf[r] = '\0';
+        uputs(unlink_read_bad_msg);
+        uputs(buf);
+        uexit(1);
+    }
+
+    uexit(0);
+
+    for (;;) {}
+}
+
 static void shell_run(const char *msg, int program_id)
     __attribute__((used, noinline, aligned(16), section(".user.text")));
 
@@ -545,6 +611,8 @@ static void shell_main(void)
     shell_run(shell_run_cat_msg, PROG_CAT);
     shell_run(shell_run_ls_msg, PROG_LS);
     shell_run(shell_run_stat_msg, PROG_STAT);
+    shell_run(shell_run_unlink_msg, PROG_UNLINK);
+    shell_run(shell_run_ls_msg, PROG_LS);
 
     uputs(shell_done_msg);
     uexit(0);
@@ -586,6 +654,10 @@ void user_main(void)
     else if (prog == PROG_STAT)
     {
         stat_main();
+    }
+    else if (prog == PROG_UNLINK)
+    {
+        unlink_main();
     }
     else
     {

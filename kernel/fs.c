@@ -93,6 +93,11 @@ static int bitmap_get(unsigned char *bitmap, unsigned int bit)
     return (bitmap[bit / 8] >> (bit % 8)) & 1;
 }
 
+static void bitmap_clear(unsigned char *bitmap, unsigned int bit)
+{
+    bitmap[bit / 8] = bitmap[bit / 8] & ~(1 << (bit % 8));
+}
+
 static int bitmap_find_free(unsigned char *bitmap, unsigned int nbits)
 {
     for (unsigned int i = 1; i < nbits; i++) 
@@ -691,6 +696,177 @@ int fs_create(const char *name, const char *content)
 
     printf("fs_create: created %s inum=%d block=%d size=%d\n",
            name, free_inum, free_block, content_len);
+
+    return 0;
+}
+
+int fs_unlink(const char *name)
+{
+    unsigned char buf[BSIZE];
+    unsigned char ibitmap[BSIZE];
+    unsigned char dbitmap[BSIZE];
+    struct dinode *dip;
+    struct dinode ino;
+    struct dinode rootino;
+    struct dirent *de;
+    int inum;
+    int found;
+    unsigned int nentry;
+    unsigned int data_index;
+
+    /*
+     * 不允许删除根目录。
+     */
+    if (streq_fs(name, "/")) 
+    {
+        printf("fs_unlink: cannot unlink root\n");
+        return -1;
+    }
+
+    inum = fs_lookup(name);
+    if (inum < 0) 
+    {
+        printf("fs_unlink: file not found: %s\n", name);
+        return -1;
+    }
+
+    if ((unsigned int)inum >= NINODES) 
+    {
+        printf("fs_unlink: bad inum=%d\n", inum);
+        return -1;
+    }
+
+    /*
+     * 读取 inode table。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(IBLOCK, buf) < 0) 
+    {
+        printf("fs_unlink: read inode table failed\n");
+        return -1;
+    }
+
+    dip = (struct dinode *)buf;
+    ino = dip[inum];
+    rootino = dip[ROOTINO];
+
+    if (ino.type == 0) 
+    {
+        printf("fs_unlink: inode already free\n");
+        return -1;
+    }
+
+    if (ino.data_block < DATASTART || ino.data_block >= NBLOCKS) 
+    {
+        printf("fs_unlink: bad data block=%d\n", ino.data_block);
+        return -1;
+    }
+
+    /*
+     * 清空目标 inode。
+     */
+    dip[inum].type = 0;
+    dip[inum].size = 0;
+    dip[inum].data_block = 0;
+
+    if (block_write(IBLOCK, buf) < 0) 
+    {
+        printf("fs_unlink: write inode table failed\n");
+        return -1;
+    }
+
+    /*
+     * 清空文件数据块。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_write(ino.data_block, buf) < 0) 
+    {
+        printf("fs_unlink: clear data block failed\n");
+        return -1;
+    }
+
+    /*
+     * 从 root directory 中删除对应 dirent。
+     * 这里采用最简单方式：把该 dirent 清零，不压缩目录。
+     */
+    memzero_fs(buf, BSIZE);
+
+    if (block_read(ROOTDIR_BLOCK, buf) < 0) 
+    {
+        printf("fs_unlink: read root directory failed\n");
+        return -1;
+    }
+
+    de = (struct dirent *)buf;
+    nentry = rootino.size / sizeof(struct dirent);
+    found = 0;
+
+    for (unsigned int i = 0; i < nentry; i++) 
+    {
+        if (de[i].inum == (unsigned int)inum && streq_fs(de[i].name, name)) 
+        {
+            de[i].inum = 0;
+            memzero_fs(de[i].name, sizeof(de[i].name));
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found) 
+    {
+        printf("fs_unlink: dirent not found\n");
+        return -1;
+    }
+
+    if (block_write(ROOTDIR_BLOCK, buf) < 0) 
+    {
+        printf("fs_unlink: write root directory failed\n");
+        return -1;
+    }
+
+    /*
+     * 更新 inode bitmap。
+     */
+    memzero_fs(ibitmap, BSIZE);
+
+    if (block_read(IBITMAP_BLOCK, ibitmap) < 0) 
+    {
+        printf("fs_unlink: read inode bitmap failed\n");
+        return -1;
+    }
+
+    bitmap_clear(ibitmap, (unsigned int)inum);
+
+    if (block_write(IBITMAP_BLOCK, ibitmap) < 0) 
+    {
+        printf("fs_unlink: write inode bitmap failed\n");
+        return -1;
+    }
+
+    /*
+     * 更新 data bitmap。
+     */
+    memzero_fs(dbitmap, BSIZE);
+
+    if (block_read(DBITMAP_BLOCK, dbitmap) < 0) 
+    {
+        printf("fs_unlink: read data bitmap failed\n");
+        return -1;
+    }
+
+    data_index = ino.data_block - DATASTART;
+    bitmap_clear(dbitmap, data_index);
+
+    if (block_write(DBITMAP_BLOCK, dbitmap) < 0) 
+    {
+        printf("fs_unlink: write data bitmap failed\n");
+        return -1;
+    }
+
+    printf("fs_unlink: removed %s inum=%d block=%d\n",
+           name, inum, ino.data_block);
 
     return 0;
 }
