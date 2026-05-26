@@ -275,8 +275,8 @@ static void reparent(struct proc *p)
 
         if (pp->parent == p)
         {
-            printf("reparent: child pid=%d from parent pid=%d to init pid=%d\n",
-                   pp->pid, p->pid, initproc->pid);
+            //printf("reparent: child pid=%d from parent pid=%d to init pid=%d\n",
+            //       pp->pid, p->pid, initproc->pid);
 
             pp->parent = initproc;
 
@@ -607,7 +607,7 @@ void proc_sleep(void *chan)
     p->chan = chan;
     p->state = SLEEPING;
 
-    printf("sleep: pid=%d chan=%p\n", p->pid, chan);
+    //printf("sleep: pid=%d chan=%p\n", p->pid, chan);
 
     /*
      * 切回 scheduler。
@@ -630,7 +630,7 @@ void wakeup(void *chan)
 
         if (p->state == SLEEPING && p->chan == chan)
         {
-            printf("wakeup: pid=%d chan=%p\n", p->pid, chan);
+            //printf("wakeup: pid=%d chan=%p\n", p->pid, chan);
 
             p->state = RUNNABLE;
         }
