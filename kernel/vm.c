@@ -134,7 +134,7 @@ void kvminit(void)
     map_or_panic(kernel_pagetable, KERNBASE, KERNBASE, PHYSTOP - KERNBASE,
                          PTE_R|PTE_W|PTE_X);
 
-    printf("kvminit done. kernel_pagetable=%p\n",
+    printf("[VM] init kernel_pagetable=%p\n",
            (void *)kernel_pagetable);
 }
 

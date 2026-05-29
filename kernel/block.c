@@ -28,7 +28,7 @@ void block_init(void)
 {
     memzero(fake_disk, NBLOCKS * BSIZE);
 
-    printf("block init done. fake disk: %d blocks, block size %d\n",
+    printf("[BLOCK] init blocks=%d bsize=%d\n",
            NBLOCKS, BSIZE);
 }
 
@@ -69,13 +69,13 @@ void block_test(void)
 
     if (block_write(1, wbuf) < 0) 
     {
-        printf("block test failed: write failed\n");
+        printf("[TEST][FAIL] block write failed\n");
         return;
     }
 
     if (block_read(1, rbuf) < 0) 
     {
-        printf("block test failed: read failed\n");
+        printf("[TEST][FAIL] block read failed\n");
         return;
     }
 
@@ -83,10 +83,10 @@ void block_test(void)
     {
         if (wbuf[i] != rbuf[i]) 
         {
-            printf("block test failed: mismatch at %d\n", i);
+            printf("[TEST][FAIL] block mismatch at %d\n", i);
             return;
         }
     }
 
-    printf("block test passed.\n");
+    printf("[TEST] block ok\n");
 }

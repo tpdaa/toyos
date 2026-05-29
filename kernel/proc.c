@@ -82,7 +82,7 @@ void procinit(void)
     current_proc = 0;
     memset_bytes(&scheduler_context, 0, sizeof(scheduler_context));
 
-    printf("proc init done.\n");
+    printf("[PROC] init nproc=%d\n", NPROC);
 }
 
 static struct proc *allocproc(void)
@@ -214,7 +214,7 @@ struct proc *userinit(void)
         p->state = RUNNABLE;
         p->program_id = 0;
 
-        printf("userinit: pid=%d name=%s state=RUNNABLE\n", p->pid, p->name);
+        printf("[PROC] userinit pid=%d name=%s\n", p->pid, p->name);
     }
     
 
@@ -232,7 +232,7 @@ void yield(void)
 
     if (p == 0) 
     {
-        printf("yield: no current proc\n");
+        printf("[PROC][ERR] yield no current proc\n");
         return;
     }
 
@@ -298,7 +298,7 @@ void proc_exit(int code)
 
     if (p == 0) 
     {
-        printf("proc_exit: no current proc\n");
+        printf("[PROC][ERR] exit no current proc\n");
 
         for (;;) 
         {
@@ -306,7 +306,7 @@ void proc_exit(int code)
         }
     }
 
-    printf("user exit, pid=%d code=%d\n", p->pid, code);
+    printf("[PROC] exit pid=%d code=%d\n", p->pid, code);
 
 
     /*
@@ -329,7 +329,7 @@ void proc_exit(int code)
 
     swtch(&p->context, &scheduler_context);
 
-    printf("proc_exit: ERROR: zombie process resumed, pid=%d\n", p->pid);
+    printf("[PROC][PANIC] zombie resumed pid=%d\n", p->pid);
 
     for (;;) 
     {
@@ -351,7 +351,7 @@ static void forkret(void)
 
     if (p == 0) 
     {
-        printf("forkret: no current proc\n");
+        printf("[PROC][PANIC] forkret no current proc\n");
 
         for (;;) 
         {
@@ -359,12 +359,12 @@ static void forkret(void)
         }
     }
 
-    printf("forkret: pid=%d enter user mode pc=%p\n",
-           p->pid, (void *)p->user_pc);
+    // printf("[PROC] forkret pid=%d user_pc=%p\n",
+    //        p->pid, (void *)p->user_pc);
 
     usertrapret(&p->trapframe, p->user_pc, proc_kstack_top(p));
 
-    printf("forkret: ERROR: enter_user returned.\n");
+    printf("[PROC][PANIC] forkret returned\n");
 
     for (;;) 
     {
@@ -374,7 +374,7 @@ static void forkret(void)
 
 void scheduler(void)
 {
-    printf("scheduler start.\n");
+    printf("[PROC] scheduler start\n");
 
     int next = 0;
     int idle_printed = 0;
@@ -432,7 +432,7 @@ void scheduler(void)
         {
             if (!idle_printed)
             {
-                printf("scheduler: no runnable process, idle.\n");
+                printf("[PROC] idle\n");
                 idle_printed = 1;
             }
             
@@ -466,7 +466,7 @@ int proc_fork(void)
 
     if (np == 0)
     {
-        printf("fork: allocproc failed\n");
+        printf("[PROC][ERR] fork allocproc failed\n");
         return -1;
     }
 
@@ -474,7 +474,7 @@ int proc_fork(void)
 
     if (np->pagetable == 0)
     {
-        printf("fork: uvmcreate failed\n");
+        printf("[PROC][ERR] fork uvmcreate failed\n");
         goto fail;
     }
 
@@ -483,7 +483,7 @@ int proc_fork(void)
 
     if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
     {
-        printf("fork: uvmcopy failed\n");
+        printf("[PROC][ERR] fork uvmcopy failed\n");
         goto fail;
     }
 
@@ -514,7 +514,7 @@ int proc_fork(void)
 
     np->state = RUNNABLE;
 
-    printf("fork: parent pid=%d child pid=%d user_pc=%p\n",
+    printf("[PROC] fork parent=%d child=%d pc=%p\n",
            p->pid, np->pid, (void *)np->user_pc);
 
     /*
@@ -555,7 +555,7 @@ int proc_wait(void)
             {
                 int pid = np->pid;
 
-                printf("wait: parent pid=%d collected child pid=%d code=%d\n",
+                printf("[PROC] wait parent=%d child=%d code=%d\n",
                        p->pid, np->pid, np->xstate);
 
                 if (np->pagetable != 0)
@@ -596,7 +596,7 @@ void proc_sleep(void *chan)
 
     if (p == 0)
     {
-        printf("proc_sleep: no current proc\n");
+        printf("[PROC][ERR] sleep no current proc\n");
         return;
     }
 
@@ -648,11 +648,11 @@ int proc_exec(int program_id)
 
     if (program_id < PROG_SHELL || program_id >  PROG_FDWRITE)
     {
-        printf("exec: bad program_id=%d\n", program_id);
+        printf("[PROC][ERR] exec bad program=%d\n", program_id);
         return -1;
     }
 
-    printf("exec: pid=%d reload user image program=%d\n",
+    printf("[PROC] exec pid=%d program=%d\n",
            p->pid, program_id);
 
     /*
