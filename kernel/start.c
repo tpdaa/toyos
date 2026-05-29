@@ -11,7 +11,7 @@
 
 void start(void)
 {
-    printf("Toyos kernel start.\n");
+    printf("[BOOT] ToyOS start\n");
 
     trap_init();
 
@@ -20,13 +20,18 @@ void start(void)
     void  *p1 = kalloc();
     void  *p2 = kalloc();
 
-    printf("kalloc test: p1=%p p2=%p\n", p1, p2);
-
     kfree(p1);
 
     void *p3 = kalloc();
 
-    printf("kalloc test: after kfree(p1), p3=%p\n", p3);
+    if (p3 == p1)
+    {
+        printf("[TEST] kalloc ok\n");
+    }
+    else
+    {
+        printf("[TEST][FAIL] kalloc reuse failed p1=%p p3=%p\n", p1, p3);
+    }
 
     kfree(p2);
     kfree(p3);
@@ -45,10 +50,12 @@ void start(void)
     userinit();
 
     timer_init();
+
+    printf("[BOOT] init done, entering scheduler\n");
     
     scheduler();
 
-    printf("ERROR: scheduler returned.\n");
+    printf("[BOOT][PANIC] scheduler returned\n");
     
     for(;;)
     {

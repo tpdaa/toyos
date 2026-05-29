@@ -293,20 +293,20 @@ static long sys_openfile(uint64 name_uva)
 
     if (p == 0 || p->pagetable == 0) 
     {
-        printf("sys_openfile: no current process\n");
+        printf("[SYSCALL][ERR] openfile no current process\n");
         return -1;
     }
 
     if (copystr(p->pagetable, name, name_uva, sizeof(name)) < 0) 
     {
-        printf("sys_openfile: bad filename %p\n", (void *)name_uva);
+        printf("[SYSCALL][ERR] openfile bad filename=%p\n", (void *)name_uva);
         return -1;
     }
 
     inum = fs_open(name);
     if (inum < 0) 
     {
-        printf("sys_openfile: fs_open failed\n");
+        printf("[SYSCALL][ERR] openfile fs_open failed\n");
         return -1;
     }
 
@@ -317,11 +317,13 @@ static long sys_openfile(uint64 name_uva)
             p->files[fd].used = 1;
             p->files[fd].inum = (unsigned int)inum;
             p->files[fd].off = 0;
+
+            printf("[FD] open pid=%d name=%s fd=%d\n", p->pid, name, fd);
             return fd;
         }
     }
 
-    printf("sys_openfile: no free fd\n");
+    printf("[SYSCALL][ERR] openfile no free fd\n");
     return -1;
 }
 
@@ -334,13 +336,13 @@ static long sys_readfd(uint64 fd_arg, uint64 buf_uva, uint64 max)
 
     if (p == 0 || p->pagetable == 0) 
     {
-        printf("sys_readfd: no current process\n");
+        printf("[SYSCALL][ERR] readfd no current process\n");
         return -1;
     }
 
     if (fd < 0 || fd >= NOFILE || !p->files[fd].used) 
     {
-        printf("sys_readfd: bad fd=%d\n", fd);
+        printf("[SYSCALL][ERR] readfd bad fd=%d\n", fd);
         return -1;
     }
 
@@ -357,13 +359,13 @@ static long sys_readfd(uint64 fd_arg, uint64 buf_uva, uint64 max)
     n = fs_readi_at(p->files[fd].inum, kbuf, (unsigned int)max, p->files[fd].off);
     if (n < 0) 
     {
-        printf("sys_readfd: fs_readi_at failed\n");
+        printf("[SYSCALL][ERR] readfd fs_readi_at failed\n");
         return -1;
     }
 
     if (copyout(p->pagetable, buf_uva, kbuf, (uint64)n) < 0) 
     {
-        printf("sys_readfd: copyout failed\n");
+        printf("[SYSCALL][ERR] readfd copyout failed\n");
         return -1;
     }
 
@@ -382,13 +384,13 @@ static long sys_writefd(uint64 fd_arg, uint64 buf_uva, uint64 n_arg)
 
     if (p == 0 || p->pagetable == 0) 
     {
-        printf("sys_writefd: no current process\n");
+        printf("[SYSCALL][ERR] writefd no current process\n");
         return -1;
     }
 
     if (fd < 0 || fd >= NOFILE || !p->files[fd].used) 
     {
-        printf("sys_writefd: bad fd=%d\n", fd);
+        printf("[SYSCALL][ERR] writefd bad fd=%d\n", fd);
         return -1;
     }
 
@@ -409,7 +411,7 @@ static long sys_writefd(uint64 fd_arg, uint64 buf_uva, uint64 n_arg)
      */
     if (copyin(p->pagetable, kbuf, buf_uva, n) < 0) 
     {
-        printf("sys_writefd: copyin failed\n");
+        printf("[SYSCALL][ERR] writefd copyin failed\n");
         return -1;
     }
 
@@ -419,7 +421,7 @@ static long sys_writefd(uint64 fd_arg, uint64 buf_uva, uint64 n_arg)
                            p->files[fd].off);
     if (written < 0) 
     {
-        printf("sys_writefd: fs_writei_at failed\n");
+        printf("[SYSCALL][ERR] writefd fs_writei_at failed\n");
         return -1;
     }
 
@@ -440,9 +442,11 @@ static long sys_closefd(uint64 fd_arg)
 
     if (fd < 0 || fd >= NOFILE || !p->files[fd].used) 
     {
-        printf("sys_closefd: bad fd=%d\n", fd);
+        printf("[SYSCALL][ERR] closefd bad fd=%d\n", fd);
         return -1;
     }
+
+    printf("[FD] close pid=%d fd=%d\n", p->pid, fd);
 
     p->files[fd].used = 0;
     p->files[fd].inum = 0;
@@ -530,7 +534,7 @@ void syscall(struct trapframe *tf)
             tf->a0 = sys_writefd(tf->a0, tf->a1, tf->a2);
             break;
         default:
-            printf("unknown syscall: %ld\n",num);
+            printf("[SYSCALL][ERR] unknown num=%ld\n",num);
             tf->a0 = (uint64)-1;
             break;
     }

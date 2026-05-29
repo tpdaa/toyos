@@ -267,10 +267,10 @@ void fs_init(void)
 
     if (fs_create("note.txt", "created by fs_create\n") < 0)
     {
-        printf("fs init warning: create note.txt failed\n");
+        printf("[FS][WARN] init create note.txt failed\n");
     }
 
-    printf("fs init done. magic=0x%x\n", sb.magic);
+    printf("[FS] init magic=0x%x files=hello.txt,readme.txt,note.txt\n", sb.magic);
 }
 
 int fs_readi(unsigned int inum, char *dst, unsigned int max)
@@ -693,8 +693,7 @@ int fs_create(const char *name, const char *content)
         return -1;
     }
 
-    printf("fs_create: created %s inum=%d block=%d size=%d\n",
-           name, free_inum, free_block, content_len);
+    printf("[FS] create name=%s size=%d\n", name, content_len);
 
     return 0;
 }
@@ -778,8 +777,7 @@ int fs_writefile(const char *name, const char *content)
         return -1;
     }
 
-    printf("fs_writefile: wrote %s inum=%d block=%d size=%d\n",
-           name, inum, data_block, content_len);
+    printf("[FS] write name=%s size=%d\n", name, content_len);
 
     return 0;
 }
@@ -885,8 +883,8 @@ int fs_appendfile(const char *name, const char *content)
         return -1;
     }
 
-    printf("fs_appendfile: appended %s inum=%d block=%d old=%d append=%d new=%d\n",
-           name, inum, data_block, old_size, append_len, new_size);
+    printf("[FS] append name=%s old=%d append=%d new=%d\n",
+           name, old_size, append_len, new_size);
 
     return 0;
 }
@@ -1056,8 +1054,7 @@ int fs_unlink(const char *name)
         return -1;
     }
 
-    printf("fs_unlink: removed %s inum=%d block=%d\n",
-           name, inum, ino.data_block);
+    printf("[FS] unlink name=%s\n", name);
 
     return 0;
 }
@@ -1071,7 +1068,7 @@ int fs_open(const char *name)
     inum = fs_lookup(name);
     if (inum < 0) 
     {
-        printf("fs_open: file not found: %s\n", name);
+        printf("[FS][WARN] open not found name=%s\n", name);
         return -1;
     }
 
@@ -1269,7 +1266,7 @@ void fs_test(void)
 
     if (block_read(SBLOCK, buf) < 0) 
     {
-        printf("fs test failed: read superblock failed\n");
+        printf("[TEST][FAIL] fs read superblock failed\n");
         return;
     }
 
@@ -1277,37 +1274,37 @@ void fs_test(void)
 
     if (sb.magic != FSMAGIC) 
     {
-        printf("fs test failed: bad magic=0x%x\n", sb.magic);
+        printf("[TEST][FAIL] fs bad magic=0x%x\n", sb.magic);
         return;
     }
 
     if (sb.size != NBLOCKS) 
     {
-        printf("fs test failed: bad size=%d\n", sb.size);
+        printf("[TEST][FAIL] fs bad size=%d\n", sb.size);
         return;
     }
 
     if (sb.inode_start != IBLOCK) 
     {
-        printf("fs test failed: bad inode_start=%d\n", sb.inode_start);
+        printf("[TEST][FAIL] fs bad inode_start=%d\n", sb.inode_start);
         return;
     }
 
     if (sb.data_start != DATASTART) 
     {
-        printf("fs test failed: bad data_start=%d\n", sb.data_start);
+        printf("[TEST][FAIL] fs bad data_start=%d\n", sb.data_start);
         return;
     }
 
     if (sb.inode_bitmap_start != IBITMAP_BLOCK) 
     {
-        printf("fs test failed: bad inode_bitmap_start=%d\n", sb.inode_bitmap_start);
+        printf("[TEST][FAIL] fs bad inode_bitmap_start=%d\n", sb.inode_bitmap_start);
         return;
     }
 
     if (sb.data_bitmap_start != DBITMAP_BLOCK) 
     {
-        printf("fs test failed: bad data_bitmap_start=%d\n", sb.data_bitmap_start);
+        printf("[TEST][FAIL] fs bad data_bitmap_start=%d\n", sb.data_bitmap_start);
         return;
     }
 
@@ -1315,7 +1312,7 @@ void fs_test(void)
 
     if (block_read(IBITMAP_BLOCK, buf) < 0) 
     {
-        printf("fs test failed: read inode bitmap failed\n");
+        printf("[TEST][FAIL] fs read inode bitmap failed\n");
         return;
     }
 
@@ -1323,7 +1320,7 @@ void fs_test(void)
         !bitmap_get(buf, HELLOINO) ||
         !bitmap_get(buf, READMEINO))
     {
-        printf("fs test failed: inode bitmap bad\n");
+        printf("[TEST][FAIL] fs inode bitmap bad\n");
         return;
     }
 
@@ -1331,7 +1328,7 @@ void fs_test(void)
 
     if (block_read(DBITMAP_BLOCK, buf) < 0) 
     {
-        printf("fs test failed: read data bitmap failed\n");
+        printf("[TEST][FAIL] fs read data bitmap failed\n");
         return;
     }
 
@@ -1339,7 +1336,7 @@ void fs_test(void)
         !bitmap_get(buf, HELLO_BLOCK - DATASTART) ||
         !bitmap_get(buf, README_BLOCK - DATASTART)) 
     {
-        printf("fs test failed: data bitmap bad\n");
+        printf("[TEST][FAIL] fs data bitmap bad\n");
         return;
     }
 
@@ -1347,7 +1344,7 @@ void fs_test(void)
 
     if (block_read(IBLOCK, buf) < 0) 
     {
-        printf("fs test failed: read inode table failed\n");
+        printf("[TEST][FAIL] fs read inode table failed\n");
         return;
     }
 
@@ -1356,19 +1353,19 @@ void fs_test(void)
 
     if (rootino.type != T_DIR)
     {
-        printf("fs test failed: bad root inode type=%d\n", rootino.type);
+        printf("[TEST][FAIL] fs bad root inode type=%d\n", rootino.type);
         return;
     }
 
     if (rootino.data_block != ROOTDIR_BLOCK) 
     {
-        printf("fs test failed: bad root data_block=%d\n", rootino.data_block);
+        printf("[TEST][FAIL] fs bad root data_block=%d\n", rootino.data_block);
         return;
     }
 
     if (rootino.size >= BSIZE) 
     {
-        printf("fs test failed: bad root size=%d\n", rootino.size);
+        printf("[TEST][FAIL] fs bad root size=%d\n", rootino.size);
         return;
     }
 
@@ -1376,7 +1373,7 @@ void fs_test(void)
     n = fs_readfile("hello.txt", (char *)filebuf, BSIZE - 1);
     if (n < 0) 
     {
-        printf("fs test failed: fs_readi failed\n");
+        printf("[TEST][FAIL] fs read hello.txt failed\n");
         return;
     }
     filebuf[n] = '\0';
@@ -1385,15 +1382,12 @@ void fs_test(void)
     n2 = fs_readfile("readme.txt", (char *)readmebuf, BSIZE - 1);
     if (n2 < 0) 
     {
-        printf("fs test failed: read readme.txt failed\n");
+        printf("[TEST][FAIL] fs read readme.txt failed\n");
         return;
     }
     readmebuf[n2] = '\0';
 
-    printf("fs test passed. size=%d nblocks=%d ninodes=%d root_data=%d read_n=%d bitmap=ok\n",
-       sb.size, sb.nblocks, sb.ninodes, rootino.data_block, n);
-
-    printf("fs file content: %s", filebuf);
-    printf("fs readme content: %s", readmebuf);
+    printf("[TEST] fs ok size=%d nblocks=%d ninodes=%d read_n=%d bitmap=ok\n",
+       sb.size, sb.nblocks, sb.ninodes, n);
 
 }

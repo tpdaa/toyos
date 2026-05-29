@@ -14,7 +14,7 @@ void trap_init(void)
 
     w_sscratch(0);
 
-    printf("trap init done, stvec=%p\n",
+    printf("[TRAP] init stvec=%p\n",
             (void *)trap_entry);
 }
 
@@ -115,8 +115,8 @@ void kernel_trap(struct trapframe *tf)
     
     if(scause==3)
     {
-        printf("trapframe: tf=%p a0=%lx a1=%lx a7=%lx\n",
-               (void *)tf, tf->a0, tf->a1, tf->a7);
+        // printf("[TRAP] breakpoint tf=%p a0=%lx a1=%lx a7=%lx\n",
+        //        (void *)tf, tf->a0, tf->a1, tf->a7);
         w_sepc(sepc+4);
 
         if (from_user && p != 0) 
@@ -127,7 +127,7 @@ void kernel_trap(struct trapframe *tf)
         return;
     }
 
-    printf("unhandled trap: scause=%lx sepc=%p stval=%lx from_user=%d\n",
+    printf("[TRAP][PANIC] unhandled scause=%lx sepc=%p stval=%lx from_user=%d\n",
        scause, (void *)sepc, stval, from_user);
 
     for(;;)

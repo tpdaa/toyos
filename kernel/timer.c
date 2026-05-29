@@ -50,7 +50,7 @@ void timer_init(void)
      */
     //w_sstatus(r_sstatus() | SSTATUS_SIE);
 
-    printf("timer init done.\n");
+    printf("[TIMER] init\n");
 }
 
 int timer_tick(void)

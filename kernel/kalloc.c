@@ -36,7 +36,7 @@ void kinit(void)
 {
     freerange(end,(void *)PHYSTOP);
 
-    printf("kalloc init done. free memory: %p - %p\n",
+    printf("[MM] kalloc init free=%p-%p\n",
             (void *)PGROUNDUP((uint64)end),(void *)PHYSTOP);
 }
 
