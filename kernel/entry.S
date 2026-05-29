@@ -2,6 +2,7 @@
 .globl _start
 .extern start
 
+//OpenSBI 跳入 ToyOS 后执行的第一条内核代码
 _start:
     #设置栈顶
     la sp,boot_stack_top

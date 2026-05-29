@@ -405,8 +405,7 @@ int fs_readfile(const char *name, char *dst, unsigned int max)
     return fs_readi((unsigned int)inum, dst, max);
 }
 
-int
-fs_stat(const char *name, struct filestat *st)
+int fs_stat(const char *name, struct filestat *st)
 {
     unsigned char buf[BSIZE];
     struct dinode *dip;

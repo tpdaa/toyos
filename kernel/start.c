@@ -48,7 +48,7 @@ void start(void)
     
     scheduler();
 
-    printf("ERROR: enter_user returned.\n");
+    printf("ERROR: scheduler returned.\n");
     
     for(;;)
     {
